@@ -19,7 +19,7 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
-# Parâmetros baseados na sua oficina (Bambu Lab e Elegoo)
+# Valores de depreciação e potência média (Estudo de caso da oficina)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -50,7 +50,6 @@ st.subheader("📦 Insumos e Materiais Extras")
 st.write("💡 **Para Adicionar:** Clique no '+' na última linha.")
 st.write("💡 **Para Deletar:** Selecione a linha e use a lixeira no topo da tabela.")
 
-# Simplificamos o editor para evitar o TypeError da imagem
 edited_df = st.data_editor(
     st.session_state.df_insumos,
     num_rows="dynamic",
@@ -63,19 +62,22 @@ if st.button("🗑️ Limpar Toda a Lista"):
     st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
     st.rerun()
 
-# --- Cálculos de Engenharia ---
+# --- Cálculos de Engenharia (CUIDADO COM OS NOMES AQUI) ---
+
+# 1. Consumo convertido para unidade base (Kg ou Litro)
 if unidade in ["g", "ml"]:
     fator_conversao = consumo_valor / 1000
 else:
     fator_conversao = consumo_valor
 
+# 2. Custos Principais
 tempo_total_h = horas + (minutos / 60)
 custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
-custo_mat_base = fator_conversao * preco_material
+custo_mat_base = fator_conversao * preco_material # Nome corrigido aqui
 depreciacao = (v_maquina / v_util) * tempo_total_h
 mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-# Processamento dos Extras
+# 3. Processamento dos Materiais Extras (Álcool, Lixa, Caixa...)
 df_calc = st.session_state.df_insumos.copy().fillna(0)
 try:
     df_calc["Preço"] = pd.to_numeric(df_calc["Preço"]).fillna(0)
@@ -84,7 +86,9 @@ try:
 except:
     total_insumos_extras = 0.0
 
-custo_producao = (cust_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
+# 4. Custo Total de Produção
+# Somando todas as variáveis definidas acima
+custo_producao = (custo_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
 
 st.markdown("---")
 markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
