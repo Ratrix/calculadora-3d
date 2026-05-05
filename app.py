@@ -6,9 +6,9 @@ st.set_page_config(page_title="Calculadora 3D - Calibrando Flow", page_icon="⚖
 st.title("⚖️ Calculadora 3D Pro")
 st.markdown("---")
 
-# --- Inicialização da Lista de Insumos Extras ---
-if 'insumos_extras' not in st.session_state:
-    st.session_state.insumos_extras = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
+# --- LÓGICA DE PERSISTÊNCIA (Corrige o erro de apagar sozinho) ---
+if 'df_insumos' not in st.session_state:
+    st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
 
 # --- Barra Lateral: Configurações de Engenharia ---
 st.sidebar.header("⚙️ Custos Fixos")
@@ -19,7 +19,6 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
-# Parâmetros técnicos (Engenharia de Controle e Automação)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -43,35 +42,37 @@ st.markdown("---")
 
 # --- Seção 2: Gerenciador de Insumos Dinâmico ---
 st.subheader("📦 Insumos e Materiais Extras")
-st.write("📝 **Lado Esquerdo:** Clique nas células para editar (Lápis).")
-st.write("🗑️ **Lado Direito:** Marque a caixa e use o ícone de lixeira da tabela para deletar itens.")
+st.write("💡 **Para Editar:** Clique duas vezes na célula (Lápis).")
+st.write("💡 **Para Deletar:** Marque a linha à esquerda e use o ícone de lixeira que aparecerá no topo da tabela.")
 
-# Tabela Interativa com controles de linha
-# O parâmetro num_rows="dynamic" habilita o ícone de lixeira no lado direito de cada linha
-st.session_state.insumos_extras = st.data_editor(
-    st.session_state.insumos_extras,
+# O segredo para não apagar é salvar o resultado do editor de volta no session_state
+edited_df = st.data_editor(
+    st.session_state.df_insumos,
     column_config={
-        "Material": st.column_config.TextColumn("Descrição do Material (✎ Editar)", width="large"),
+        "Material": st.column_config.TextColumn("Descrição do Material", width="large"),
         "Preço": st.column_config.NumberColumn("Preço Unitário (R$)", min_value=0, format="R$ %.2f"),
         "Qtd": st.column_config.NumberColumn("Qtd", min_value=1, step=1),
     },
-    num_rows="dynamic",
+    num_rows="dynamic", # Habilita adicionar/remover linhas
     use_container_width=True,
-    key="editor_insumos"
+    key="insumos_editor"
 )
 
-# Botão para Limpar Toda a Lista (Embaixo da tabela como solicitado)
+# Atualiza o estado global com o que foi editado (evita que os dados sumam)
+st.session_state.df_insumos = edited_df
+
+# Botão Limpar Tudo
 if st.button("🗑️ Limpar Toda a Lista"):
-    st.session_state.insumos_extras = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
+    st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
     st.rerun()
 
 # --- Cálculos Finais ---
-if not st.session_state.insumos_extras.empty:
-    # Conversão para garantir que valores vazios não quebrem o cálculo
-    df_calc = st.session_state.insumos_extras.copy().fillna(0)
-    total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
-else:
-    total_insumos_extras = 0.0
+df_calc = st.session_state.df_insumos.copy().fillna(0)
+# Garante que as colunas são numéricas para o cálculo
+df_calc["Preço"] = pd.to_numeric(df_calc["Preço"], errors='coerce').fillna(0)
+df_calc["Qtd"] = pd.to_numeric(df_calc["Qtd"], errors='coerce').fillna(0)
+
+total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
 
 tempo_total_h = horas + (minutos / 60)
 custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
