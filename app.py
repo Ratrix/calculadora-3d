@@ -6,9 +6,9 @@ st.set_page_config(page_title="Calculadora 3D - Calibrando Flow", page_icon="⚖
 st.title("⚖️ Calculadora 3D Pro")
 st.markdown("---")
 
-# --- Inicialização da Lista de Insumos Extras no Estado da Sessão ---
+# --- Inicialização da Lista de Insumos Extras ---
 if 'insumos_extras' not in st.session_state:
-    st.session_state.insumos_extras = []
+    st.session_state.insumos_extras = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
 
 # --- Barra Lateral: Configurações de Engenharia ---
 st.sidebar.header("⚙️ Custos Fixos")
@@ -19,7 +19,7 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
-# Parâmetros técnicos silenciosos por tecnologia
+# Parâmetros técnicos baseados na sua oficina
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -41,35 +41,31 @@ with col2:
 
 st.markdown("---")
 
-# --- Seção 2: Gerenciador de Insumos Extras (Papel, Álcool, Caixas, etc.) ---
+# --- Seção 2: Gerenciador de Insumos Dinâmico ---
 st.subheader("📦 Insumos e Materiais Extras")
-st.info("Adicione aqui tudo o que comprou para este projeto (Lixas, Álcool, Papel Toalha, Caixa de Correio, etc.)")
+st.info("💡 Dica: Você pode editar os nomes e valores direto na tabela abaixo. Para apagar um item específico, selecione a linha e aperte 'Delete'.")
 
-col_add1, col_add2, col_add3 = st.columns([3, 1, 1])
-novo_item = col_add1.text_input("Descrição do Material", placeholder="Ex: Álcool Isopropílico")
-valor_item = col_add2.number_input("Valor Pago (R$)", min_value=0.0, step=1.0)
-qtd_item = col_add3.number_input("Quantidade", min_value=1, step=1)
+# Editor de Dados (Tabela Interativa)
+# num_rows="dynamic" permite que o usuário adicione e remova linhas livremente
+st.session_state.insumos_extras = st.data_editor(
+    st.session_state.insumos_extras,
+    column_config={
+        "Material": st.column_config.TextColumn("Descrição do Material", width="large", required=True),
+        "Preço": st.column_config.NumberColumn("Preço Unitário (R$)", min_value=0, format="R$ %.2f"),
+        "Qtd": st.column_config.NumberColumn("Quantidade", min_value=1, step=1),
+    },
+    num_rows="dynamic",
+    use_container_width=True
+)
 
-if st.button("➕ Adicionar Material"):
-    if novo_item:
-        st.session_state.insumos_extras.append({
-            "Material": novo_item,
-            "Preço": valor_item,
-            "Qtd": qtd_item,
-            "Total": valor_item * qtd_item
-        })
-        st.rerun()
-
-# Exibição e Remoção de Itens
-total_insumos_extras = 0.0
-if st.session_state.insumos_extras:
-    df_insumos = pd.DataFrame(st.session_state.insumos_extras)
-    st.table(df_insumos)
-    total_insumos_extras = df_insumos["Total"].sum()
-    
-    if st.button("🗑️ Limpar Todos os Materiais"):
-        st.session_state.insumos_extras = []
-        st.rerun()
+# Cálculo do Total de Extras
+if not st.session_state.insumos_extras.empty:
+    # Garante que os valores são numéricos antes de calcular
+    st.session_state.insumos_extras["Preço"] = pd.to_numeric(st.session_state.insumos_extras["Preço"])
+    st.session_state.insumos_extras["Qtd"] = pd.to_numeric(st.session_state.insumos_extras["Qtd"])
+    total_insumos_extras = (st.session_state.insumos_extras["Preço"] * st.session_state.insumos_extras["Qtd"]).sum()
+else:
+    total_insumos_extras = 0.0
 
 # --- Cálculos Finais de Engenharia ---
 tempo_total_h = horas + (minutos / 60)
@@ -78,7 +74,6 @@ custo_mat_base = (peso_vol / 1000) * preco_material
 depreciacao = (v_maquina / v_util) * tempo_total_h
 mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-# Custo total somando os materiais extras adicionados
 custo_producao = (custo_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
 
 st.markdown("---")
