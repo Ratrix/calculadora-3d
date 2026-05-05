@@ -1,59 +1,60 @@
 import streamlit as st
 
-# Configuração da página profissional
-st.set_page_config(page_title="Calibrando Flow 3D - Calculadora Pro", page_icon="⚖️")
+st.set_page_config(page_title="Calculadora 3D - Calibrando Flow", page_icon="⚖️")
 
-st.title("⚖️ Calculadora de Custos 3D Pro")
+st.title("⚖️ Calculadora 3D Pro")
 st.markdown("---")
 
-# --- Barra Lateral (Configurações Gerais) ---
-st.sidebar.header("⚙️ Configurações Base")
-custo_kwh = st.sidebar.number_input("Custo da Energia (R$/kWh)", value=0.84)
-taxa_falha = st.sidebar.slider("Taxa de Falha Estimada (%)", 0, 30, 10)
-markup_base = st.sidebar.slider("Margem de Lucro Desejada (%)", 0, 1000, 100, step=10)
+# --- Barra Lateral: Configurações de Engenharia ---
+st.sidebar.header("⚙️ Custos Fixos")
+custo_kwh = st.sidebar.number_input("Energia (R$/kWh)", value=0.98) # Conforme sua imagem image_2da9c4.png
+valor_sua_hora = st.sidebar.number_input("Valor da sua Hora (R$)", value=30.0)
+taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 
-# --- Entrada de Dados da Peça ---
+# --- Seleção de Máquina (Presets) ---
+st.sidebar.header("📠 Minhas Máquinas")
+maquina = st.sidebar.selectbox("Selecionar Impressora", ["Bambu Lab A1 (FDM)", "Elegoo Saturn 2 (Resina)"])
+
+if maquina == "Bambu Lab A1 (FDM)":
+    v_maquina, v_util, pot_media = 2500.0, 5000, 200
+else:
+    v_maquina, v_util, pot_media = 3500.0, 3000, 60
+
+# --- Dados da Impressão ---
 col1, col2 = st.columns(2)
-
 with col1:
-    nome_peca = st.text_input("Nome da Peça", placeholder="Ex: Action Figure")
-    tecnologia = st.selectbox("Tecnologia", ["Filamento (FDM)", "Resina (SLA)"])
-    preco_material = st.number_input("Preço do Material (R$)", value=95.0)
+    nome_peca = st.text_input("Nome do Projeto", value="Head_teste")
+    preco_material = st.number_input("Preço do Material (R$/kg ou L)", value=160.0)
+    peso_vol = st.number_input("Consumo (g ou ml)", value=151.0)
 
 with col2:
-    st.write("Tempo de Impressão")
+    st.write("Tempo de Máquina")
     h_col, m_col = st.columns(2)
-    horas = h_col.number_input("Horas", min_value=0, value=1)
-    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=0)
-    peso_vol = st.number_input("Peso/Volume (g ou ml)", value=50.0)
+    horas = h_col.number_input("H", min_value=0, value=12)
+    minutos = m_col.number_input("M", min_value=0, max_value=59, value=10)
+    tempo_pos = st.number_input("Tempo Humano (Setup/Pós) em min", value=20)
 
-# --- Depreciação e Invisíveis ---
-with st.expander("🛠️ Custos Ocultos e Depreciação"):
-    valor_maquina = st.number_input("Valor da Máquina (R$)", value=2500.0)
-    vida_util = st.number_input("Vida Útil (Horas)", value=5000)
-    # Custos de insumo baseados na tecnologia
-    insumo_default = 2.0 if tecnologia == "Filamento (FDM)" else 7.0
-    insumos_fixos = st.number_input("Insumos extras (Luvas/IPA/Bicos)", value=insumo_default)
-
-# --- Lógica de Cálculo ---
+# --- Cálculos de Engenharia ---
 tempo_total_h = horas + (minutos / 60)
-potencia = 350 if tecnologia == "Filamento (FDM)" else 60
-custo_energia = (potencia * tempo_total_h / 1000) * custo_kwh
+custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
 custo_mat = (peso_vol / 1000) * preco_material
-depreciacao = (valor_maquina / vida_util) * tempo_total_h
+depreciacao = (v_maquina / v_util) * tempo_total_h
+mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-custo_base = custo_mat + custo_energia + depreciacao + insumos_fixos
-custo_total_real = custo_base * (1 + (taxa_falha / 100))
-valor_lucro = custo_total_real * (markup_base / 100)
-preco_venda = custo_total_real + valor_lucro
+# Custo Base Total
+custo_producao = (custo_mat + custo_energia + depreciacao + mao_de_obra) * (1 + (taxa_falha / 100))
+
+# Margem de Lucro (Puxada da sua imagem)
+markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 300) 
+preco_venda = custo_producao * (1 + (markup / 100))
 
 # --- Resultados ---
 st.markdown("---")
 res1, res2, res3 = st.columns(3)
-res1.metric("Custo Produção", f"R$ {custo_total_real:.2f}")
-res2.metric("Preço de Venda", f"R$ {preco_venda:.2f}")
-res3.metric("Lucro Líquido", f"R$ {valor_lucro:.2f}")
+res1.metric("Custo de Produção", f"R$ {custo_producao:.2f}")
+res2.metric("Preço Sugerido", f"R$ {preco_venda:.2f}")
+res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_producao):.2f}")
 
-if st.button("Gerar Resumo para WhatsApp"):
-    texto = f"*Orçamento Calibrando Flow 3D*\n*Peça:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
+if st.button("Gerar Orçamento WhatsApp"):
+    texto = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Técnica:* {maquina}\n*Valor:* R$ {preco_venda:.2f}\n*Prazo estimado:* {horas}h {minutos}m"
     st.code(texto)
