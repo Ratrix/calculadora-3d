@@ -19,6 +19,7 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
+# Parâmetros baseados na sua oficina (Bambu Lab e Elegoo)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -30,7 +31,6 @@ with col1:
     nome_peca = st.text_input("Nome do Projeto", value="Cabeça")
     preco_material = st.number_input("Preço do Material Base (R$)", value=160.0)
     
-    # --- NOVO: Seletor de Unidade de Consumo ---
     st.write("Consumo da Peça")
     c_col1, c_col2 = st.columns([2, 1])
     consumo_valor = c_col1.number_input("Quantidade", min_value=0.0, value=0.0, step=0.1, label_visibility="collapsed")
@@ -47,16 +47,12 @@ st.markdown("---")
 
 # --- Seção 2: Gerenciador de Insumos Dinâmico ---
 st.subheader("📦 Insumos e Materiais Extras")
-st.write("💡 **Para Adicionar:** Clique no '+' na última linha ou comece a digitar na descrição.")
-st.write("💡 **Para Deletar:** Marque a linha à esquerda e use a lixeira no topo da tabela.")
+st.write("💡 **Para Adicionar:** Clique no '+' na última linha.")
+st.write("💡 **Para Deletar:** Selecione a linha e use a lixeira no topo da tabela.")
 
+# Simplificamos o editor para evitar o TypeError da imagem
 edited_df = st.data_editor(
     st.session_state.df_insumos,
-    column_config={
-        "Material": st.column_config.TextColumn("Descrição do Material", width="large", placeholder="Ex: Álcool, Lixa, Caixa..."),
-        "Preço": st.column_config.NumberColumn("Preço Unitário (R$)", min_value=0, format="R$ %.2f"),
-        "Qtd": st.column_config.NumberColumn("Qtd", min_value=1, step=1),
-    },
     num_rows="dynamic",
     use_container_width=True,
     key="insumos_editor"
@@ -68,7 +64,6 @@ if st.button("🗑️ Limpar Toda a Lista"):
     st.rerun()
 
 # --- Cálculos de Engenharia ---
-# Conversão de unidade para o cálculo (Base é kg ou L)
 if unidade in ["g", "ml"]:
     fator_conversao = consumo_valor / 1000
 else:
@@ -80,11 +75,14 @@ custo_mat_base = fator_conversao * preco_material
 depreciacao = (v_maquina / v_util) * tempo_total_h
 mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-# Extras
+# Processamento dos Extras
 df_calc = st.session_state.df_insumos.copy().fillna(0)
-df_calc["Preço"] = pd.to_numeric(df_calc["Preço"], errors='coerce').fillna(0)
-df_calc["Qtd"] = pd.to_numeric(df_calc["Qtd"], errors='coerce').fillna(0)
-total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
+try:
+    df_calc["Preço"] = pd.to_numeric(df_calc["Preço"]).fillna(0)
+    df_calc["Qtd"] = pd.to_numeric(df_calc["Qtd"]).fillna(0)
+    total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
+except:
+    total_insumos_extras = 0.0
 
 custo_producao = (cust_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
 
@@ -94,10 +92,10 @@ preco_venda = custo_producao * (1 + (markup / 100))
 
 # --- Resultados ---
 res1, res2, res3 = st.columns(3)
-res1.metric("Custo Total de Produção", f"R$ {custo_producao:.2f}")
-res2.metric("Preço de Venda Final", f"R$ {preco_venda:.2f}")
-res3.metric("Lucro Bruto", f"R$ {(preco_venda - custo_producao):.2f}")
+res1.metric("Custo de Produção", f"R$ {custo_producao:.2f}")
+res2.metric("Preço de Venda", f"R$ {preco_venda:.2f}")
+res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_producao):.2f}")
 
 if st.button("Gerar Resumo para WhatsApp"):
-    resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
+    resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}\n*Tecnologia:* {tecnologia}"
     st.code(resumo)
