@@ -19,7 +19,7 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
-# Parâmetros técnicos baseados na sua oficina
+# Parâmetros técnicos (Engenharia de Controle e Automação)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -43,31 +43,36 @@ st.markdown("---")
 
 # --- Seção 2: Gerenciador de Insumos Dinâmico ---
 st.subheader("📦 Insumos e Materiais Extras")
-st.info("💡 Dica: Você pode editar os nomes e valores direto na tabela abaixo. Para apagar um item específico, selecione a linha e aperte 'Delete'.")
+st.write("📝 **Lado Esquerdo:** Clique nas células para editar (Lápis).")
+st.write("🗑️ **Lado Direito:** Marque a caixa e use o ícone de lixeira da tabela para deletar itens.")
 
-# Editor de Dados (Tabela Interativa)
-# num_rows="dynamic" permite que o usuário adicione e remova linhas livremente
+# Tabela Interativa com controles de linha
+# O parâmetro num_rows="dynamic" habilita o ícone de lixeira no lado direito de cada linha
 st.session_state.insumos_extras = st.data_editor(
     st.session_state.insumos_extras,
     column_config={
-        "Material": st.column_config.TextColumn("Descrição do Material", width="large", required=True),
+        "Material": st.column_config.TextColumn("Descrição do Material (✎ Editar)", width="large"),
         "Preço": st.column_config.NumberColumn("Preço Unitário (R$)", min_value=0, format="R$ %.2f"),
-        "Qtd": st.column_config.NumberColumn("Quantidade", min_value=1, step=1),
+        "Qtd": st.column_config.NumberColumn("Qtd", min_value=1, step=1),
     },
     num_rows="dynamic",
-    use_container_width=True
+    use_container_width=True,
+    key="editor_insumos"
 )
 
-# Cálculo do Total de Extras
+# Botão para Limpar Toda a Lista (Embaixo da tabela como solicitado)
+if st.button("🗑️ Limpar Toda a Lista"):
+    st.session_state.insumos_extras = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
+    st.rerun()
+
+# --- Cálculos Finais ---
 if not st.session_state.insumos_extras.empty:
-    # Garante que os valores são numéricos antes de calcular
-    st.session_state.insumos_extras["Preço"] = pd.to_numeric(st.session_state.insumos_extras["Preço"])
-    st.session_state.insumos_extras["Qtd"] = pd.to_numeric(st.session_state.insumos_extras["Qtd"])
-    total_insumos_extras = (st.session_state.insumos_extras["Preço"] * st.session_state.insumos_extras["Qtd"]).sum()
+    # Conversão para garantir que valores vazios não quebrem o cálculo
+    df_calc = st.session_state.insumos_extras.copy().fillna(0)
+    total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
 else:
     total_insumos_extras = 0.0
 
-# --- Cálculos Finais de Engenharia ---
 tempo_total_h = horas + (minutos / 60)
 custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
 custo_mat_base = (peso_vol / 1000) * preco_material
