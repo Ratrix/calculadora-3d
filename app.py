@@ -6,7 +6,7 @@ st.set_page_config(page_title="Calculadora 3D - Calibrando Flow", page_icon="⚖
 st.title("⚖️ Calculadora 3D Pro")
 st.markdown("---")
 
-# --- LÓGICA DE PERSISTÊNCIA (Corrige o erro de apagar sozinho) ---
+# --- Lógica de Persistência ---
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
 
@@ -27,60 +27,66 @@ else:
 # --- Seção 1: Dados da Impressão ---
 col1, col2 = st.columns(2)
 with col1:
-    nome_peca = st.text_input("Nome do Projeto", value="Projeto_Exemplo")
+    nome_peca = st.text_input("Nome do Projeto", value="Cabeça")
     preco_material = st.number_input("Preço do Material Base (R$)", value=160.0)
-    peso_vol = st.number_input("Consumo da Peça (g ou ml)", value=100.0)
+    
+    # --- NOVO: Seletor de Unidade de Consumo ---
+    st.write("Consumo da Peça")
+    c_col1, c_col2 = st.columns([2, 1])
+    consumo_valor = c_col1.number_input("Quantidade", min_value=0.0, value=0.0, step=0.1, label_visibility="collapsed")
+    unidade = c_col2.selectbox("Unidade", ["g", "kg", "ml", "L"], label_visibility="collapsed")
 
 with col2:
     st.write("Tempo de Máquina")
     h_col, m_col = st.columns(2)
-    horas = h_col.number_input("Horas", min_value=0, value=1)
-    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=0)
+    horas = h_col.number_input("Horas", min_value=0, value=15)
+    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=12)
     tempo_pos = st.number_input("Seu Tempo de Trabalho (minutos)", value=20)
 
 st.markdown("---")
 
 # --- Seção 2: Gerenciador de Insumos Dinâmico ---
 st.subheader("📦 Insumos e Materiais Extras")
-st.write("💡 **Para Editar:** Clique duas vezes na célula (Lápis).")
-st.write("💡 **Para Deletar:** Marque a linha à esquerda e use o ícone de lixeira que aparecerá no topo da tabela.")
+st.write("💡 **Para Adicionar:** Clique no '+' na última linha ou comece a digitar na descrição.")
+st.write("💡 **Para Deletar:** Marque a linha à esquerda e use a lixeira no topo da tabela.")
 
-# O segredo para não apagar é salvar o resultado do editor de volta no session_state
 edited_df = st.data_editor(
     st.session_state.df_insumos,
     column_config={
-        "Material": st.column_config.TextColumn("Descrição do Material", width="large"),
+        "Material": st.column_config.TextColumn("Descrição do Material", width="large", placeholder="Ex: Álcool, Lixa, Caixa..."),
         "Preço": st.column_config.NumberColumn("Preço Unitário (R$)", min_value=0, format="R$ %.2f"),
         "Qtd": st.column_config.NumberColumn("Qtd", min_value=1, step=1),
     },
-    num_rows="dynamic", # Habilita adicionar/remover linhas
+    num_rows="dynamic",
     use_container_width=True,
     key="insumos_editor"
 )
-
-# Atualiza o estado global com o que foi editado (evita que os dados sumam)
 st.session_state.df_insumos = edited_df
 
-# Botão Limpar Tudo
 if st.button("🗑️ Limpar Toda a Lista"):
     st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
     st.rerun()
 
-# --- Cálculos Finais ---
-df_calc = st.session_state.df_insumos.copy().fillna(0)
-# Garante que as colunas são numéricas para o cálculo
-df_calc["Preço"] = pd.to_numeric(df_calc["Preço"], errors='coerce').fillna(0)
-df_calc["Qtd"] = pd.to_numeric(df_calc["Qtd"], errors='coerce').fillna(0)
-
-total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
+# --- Cálculos de Engenharia ---
+# Conversão de unidade para o cálculo (Base é kg ou L)
+if unidade in ["g", "ml"]:
+    fator_conversao = consumo_valor / 1000
+else:
+    fator_conversao = consumo_valor
 
 tempo_total_h = horas + (minutos / 60)
 custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
-custo_mat_base = (peso_vol / 1000) * preco_material
+custo_mat_base = fator_conversao * preco_material
 depreciacao = (v_maquina / v_util) * tempo_total_h
 mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-custo_producao = (custo_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
+# Extras
+df_calc = st.session_state.df_insumos.copy().fillna(0)
+df_calc["Preço"] = pd.to_numeric(df_calc["Preço"], errors='coerce').fillna(0)
+df_calc["Qtd"] = pd.to_numeric(df_calc["Qtd"], errors='coerce').fillna(0)
+total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
+
+custo_producao = (cust_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
 
 st.markdown("---")
 markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
