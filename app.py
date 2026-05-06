@@ -1,13 +1,15 @@
 import streamlit as st
 import pandas as pd
 
+# Configuração da página para aproveitar o espaço lateral
 st.set_page_config(page_title="Calculadora 3D - Calibrando Flow", page_icon="⚖️", layout="wide")
 
 st.title("⚖️ Calculadora 3D Pro")
 st.markdown("---")
 
-# --- Lógica de Persistência ---
+# --- LÓGICA DE MEMÓRIA (Impede os dados de sumirem ao dar Enter) ---
 if 'df_insumos' not in st.session_state:
+    # Criamos a tabela inicial vazia
     st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
 
 # --- Barra Lateral: Configurações de Engenharia ---
@@ -19,13 +21,13 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
-# Valores de depreciação e potência média (Estudo de caso da oficina)
+# Parâmetros técnicos das suas máquinas (Bambu Lab / Elegoo)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
     v_maquina, v_util, pot_media = 3500.0, 3000, 60
 
-# --- Seção 1: Dados da Impressão ---
+# --- Seção 1: Dados Principais ---
 col1, col2 = st.columns(2)
 with col1:
     nome_peca = st.text_input("Nome do Projeto", value="Cabeça")
@@ -45,61 +47,56 @@ with col2:
 
 st.markdown("---")
 
-# --- Seção 2: Gerenciador de Insumos Dinâmico ---
+# --- Seção 2: Insumos Extras (Tabela Corrigida) ---
 st.subheader("📦 Insumos e Materiais Extras")
-st.write("💡 **Para Adicionar:** Clique no '+' na última linha.")
-st.write("💡 **Para Deletar:** Selecione a linha e use a lixeira no topo da tabela.")
+st.write("💡 **Edição:** Clique em qualquer campo para alterar (✎).")
+st.write("💡 **Exclusão:** Marque a linha à esquerda e aperte 'Delete' no teclado ou use a lixeira no topo direito da tabela.")
 
-edited_df = st.data_editor(
+# O 'data_editor' atualiza o session_state automaticamente para não perder dados
+st.session_state.df_insumos = st.data_editor(
     st.session_state.df_insumos,
-    num_rows="dynamic",
+    column_config={
+        "Material": st.column_config.TextColumn("Descrição (✎)", width="large", required=True),
+        "Preço": st.column_config.NumberColumn("Valor (R$)", min_value=0, format="R$ %.2f"),
+        "Qtd": st.column_config.NumberColumn("Qtd", min_value=1, step=1),
+    },
+    num_rows="dynamic", # Permite adicionar e deletar linhas
     use_container_width=True,
-    key="insumos_editor"
+    key="editor_principal"
 )
-st.session_state.df_insumos = edited_df
 
 if st.button("🗑️ Limpar Toda a Lista"):
     st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
     st.rerun()
 
-# --- Cálculos de Engenharia (CUIDADO COM OS NOMES AQUI) ---
+# --- Cálculos Finais ---
+# Conversão de unidades
+fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
 
-# 1. Consumo convertido para unidade base (Kg ou Litro)
-if unidade in ["g", "ml"]:
-    fator_conversao = consumo_valor / 1000
-else:
-    fator_conversao = consumo_valor
-
-# 2. Custos Principais
+# Custos Base
 tempo_total_h = horas + (minutos / 60)
 custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
-custo_mat_base = fator_conversao * preco_material # Nome corrigido aqui
+custo_mat_base = fator * preco_material
 depreciacao = (v_maquina / v_util) * tempo_total_h
 mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-# 3. Processamento dos Materiais Extras (Álcool, Lixa, Caixa...)
+# Soma dos Extras da Tabela
 df_calc = st.session_state.df_insumos.copy().fillna(0)
-try:
-    df_calc["Preço"] = pd.to_numeric(df_calc["Preço"]).fillna(0)
-    df_calc["Qtd"] = pd.to_numeric(df_calc["Qtd"]).fillna(0)
-    total_insumos_extras = (df_calc["Preço"] * df_calc["Qtd"]).sum()
-except:
-    total_insumos_extras = 0.0
+total_extras = (pd.to_numeric(df_calc["Preço"]) * pd.to_numeric(df_calc["Qtd"])).sum()
 
-# 4. Custo Total de Produção
-# Somando todas as variáveis definidas acima
-custo_producao = (custo_mat_base + custo_energia + depreciacao + mao_de_obra + total_insumos_extras) * (1 + (taxa_falha / 100))
+# Total com margem de segurança
+custo_producao = (custo_mat_base + custo_energia + depreciacao + mao_de_obra + total_extras) * (1 + (taxa_falha / 100))
 
 st.markdown("---")
 markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
 preco_venda = custo_producao * (1 + (markup / 100))
 
-# --- Resultados ---
+# --- Exibição de Resultados ---
 res1, res2, res3 = st.columns(3)
 res1.metric("Custo de Produção", f"R$ {custo_producao:.2f}")
 res2.metric("Preço de Venda", f"R$ {preco_venda:.2f}")
 res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_producao):.2f}")
 
 if st.button("Gerar Resumo para WhatsApp"):
-    resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}\n*Tecnologia:* {tecnologia}"
+    resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
     st.code(resumo)
