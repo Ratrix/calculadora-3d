@@ -10,16 +10,23 @@ st.markdown("---")
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
-# --- BARRA LATERAL (Custos Fixos de Engenharia) ---
+# --- BARRA LATERAL (Custos Fixos e Payback) ---
 st.sidebar.header("⚙️ Configurações Base")
 custo_kwh = st.sidebar.number_input("Energia (R$/kWh)", value=0.98)
 valor_sua_hora = st.sidebar.number_input("Sua Hora Técnica (R$)", value=30.0)
 taxa_falha = st.sidebar.slider("Margem de Segurança/Falha (%)", 0, 30, 10)
 
-st.sidebar.header("📠 Depreciação da Máquina")
-valor_maquina = st.sidebar.number_input("Valor de Compra (R$)", value=2500.0)
-vida_util_horas = st.sidebar.number_input("Vida Útil Estimada (Horas)", value=5000)
-depreciacao_hora = valor_maquina / vida_util_horas
+st.sidebar.header("💰 Planejamento de Payback")
+valor_maquina = st.sidebar.number_input("Valor da Máquina (R$)", value=2500.0)
+meses_payback = st.sidebar.number_input("Quitar em quantos meses?", value=12, min_value=1)
+uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, min_value=1)
+
+# Cálculo da Depreciação por Objetivo Financeiro
+# (Valor / Meses) = Quanto ela tem que render por mês. 
+# (Rendimento Mensal / Horas de uso) = Custo de depreciação por hora de impressão.
+depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
+
+st.sidebar.write(f"📊 **Custo de Máquina:** R$ {depreciacao_hora:.2f}/hora")
 
 st.sidebar.header("🛠️ Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
@@ -33,8 +40,8 @@ with col_p1:
     
     st.write("Consumo de Material")
     c_col1, c_col2 = st.columns([2, 1])
-    consumo_valor = c_col1.number_input("Qtd Consumida", min_value=0.0, step=0.1, key="cons_val")
-    unidade = c_col2.selectbox("Unidade", ["g", "kg", "ml", "L"], key="cons_uni")
+    consumo_valor = c_col1.number_input("Qtd Consumida", min_value=0.0, step=0.1)
+    unidade = c_col2.selectbox("Unidade", ["g", "kg", "ml", "L"])
 
 with col_p2:
     st.write("Tempo de Impressão (Máquina)")
@@ -42,9 +49,9 @@ with col_p2:
     horas = h_col.number_input("Horas", min_value=0, value=1)
     minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=0)
     
-    st.write("Custos de Engenharia e Pós")
-    tempo_pos = st.number_input("Trabalho Manual (Setup/Pós) em min", value=20)
-    valor_modelagem = st.number_input("Valor da Modelagem 3D (R$)", value=0.0, help="Deixe 0 se o cliente já enviou o arquivo pronto.")
+    st.write("Custos de Engenharia")
+    tempo_pos = st.number_input("Setup e Pós-Processo (min)", value=20)
+    valor_modelagem = st.number_input("Valor da Modelagem 3D (R$)", value=0.0)
 
 st.markdown("---")
 
@@ -55,9 +62,9 @@ with st.container():
     with col_add1:
         novo_mat = st.text_input("Descrição (Lixa, Álcool, Caixa...)", key="input_mat")
     with col_add2:
-        novo_preco = st.number_input("Valor (R$)", min_value=0.0, step=0.5, key="input_preco")
+        novo_preco = st.number_input("Valor (R$)", min_value=0.0, key="input_preco")
     with col_add3:
-        novo_qtd = st.number_input("Qtd", min_value=1, step=1, key="input_qtd")
+        novo_qtd = st.number_input("Qtd", min_value=1, key="input_qtd")
     with col_add4:
         st.write(" ")
         st.write(" ")
@@ -71,9 +78,8 @@ st.session_state.df_insumos = st.data_editor(
     st.session_state.df_insumos,
     column_config={
         "Selecionar": st.column_config.CheckboxColumn("Excluir?", default=False),
-        "Material": st.column_config.TextColumn("Descrição", width="large"),
-        "Preço": st.column_config.NumberColumn("Valor Unit. (R$)", format="R$ %.2f"),
-        "Qtd": st.column_config.NumberColumn("Qtd"),
+        "Material": st.column_config.TextColumn("Descrição"),
+        "Preço": st.column_config.NumberColumn("Valor Unit.", format="R$ %.2f"),
     },
     num_rows="fixed", use_container_width=True, key="editor_insumos"
 )
@@ -92,31 +98,26 @@ with col_btn2:
 fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
 tempo_total_h = horas + (minutos / 60)
 
-# 1. Custo de Material e Energia
 custo_mat_base = fator * preco_material
 custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
-
-# 2. Depreciação e Mão de Obra
 custo_depreciacao = tempo_total_h * depreciacao_hora
 custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 
-# 3. Extras e Modelagem
 df_calc = st.session_state.df_insumos.copy().fillna(0)
 total_extras = (pd.to_numeric(df_calc["Preço"]) * pd.to_numeric(df_calc["Qtd"])).sum()
 
-# Soma Total
-custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
-custo_com_falha = custo_producao * (1 + (taxa_falha / 100))
+custo_producao_base = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
+custo_final_com_falha = custo_producao_base * (1 + (taxa_falha / 100))
 
 st.markdown("---")
 markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
-preco_venda = custo_com_falha * (1 + (markup / 100))
+preco_venda = custo_final_com_falha * (1 + (markup / 100))
 
 # --- RESULTADOS ---
 res1, res2, res3 = st.columns(3)
-res1.metric("Custo Total (Produção)", f"R$ {custo_com_falha:.2f}", help="Inclui depreciação, energia e margem de falha.")
-res2.metric("Preço de Venda Final", f"R$ {preco_venda:.2f}")
-res3.metric("Lucro Líquido Real", f"R$ {(preco_venda - custo_com_falha):.2f}")
+res1.metric("Custo de Produção", f"R$ {custo_final_com_falha:.2f}")
+res2.metric("Preço de Venda Sugerido", f"R$ {preco_venda:.2f}")
+res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final_com_falha):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
     resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Técnica:* {tecnologia}\n*Valor:* R$ {preco_venda:.2f}"
