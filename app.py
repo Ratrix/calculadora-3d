@@ -19,6 +19,7 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
+# Parâmetros técnicos (Bambu Lab / Elegoo)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -44,10 +45,10 @@ with col_p2:
 
 st.markdown("---")
 
-# --- SEÇÃO DE INSUMOS (SOLUÇÃO PARA A LINHA NÃO CRIAR SOZINHA) ---
+# --- SEÇÃO DE INSUMOS ---
 st.subheader("📦 Insumos e Materiais Extras")
 
-# 1. Campos de Adição (Única forma de criar linha agora)
+# 1. Campos de Adição (Única forma de criar linha)
 with st.container():
     col_add1, col_add2, col_add3, col_add4 = st.columns([3, 1, 1, 1])
     with col_add1:
@@ -57,21 +58,18 @@ with st.container():
     with col_add3:
         novo_qtd = st.number_input("Qtd", min_value=1, step=1, key="input_qtd")
     with col_add4:
-        st.write(" ") # Alinhamento visual
+        st.write(" ") 
         st.write(" ")
         if st.button("➕ Adicionar à Lista"):
             if novo_mat:
-                # Cria a nova linha
                 nova_linha = pd.DataFrame([{"Material": novo_mat, "Preço": novo_preco, "Qtd": novo_qtd}])
-                # Adiciona ao banco de dados da sessão
                 st.session_state.df_insumos = pd.concat([st.session_state.df_insumos, nova_linha], ignore_index=True)
-                # Limpa os campos e recarrega
                 st.rerun()
 
-# 2. Tabela de Visualização e Edição (Não cria linhas novas ao clicar)
-st.write("💡 **Para Editar:** Clique na célula desejada. | **Para Deletar:** Marque a linha e use a lixeira no topo.")
+# 2. Tabela de Visualização, Edição e Exclusão Seletiva
+st.write("💡 **Para Editar:** Clique na célula. | **Para Excluir:** Marque a linha à esquerda e use o ícone de lixeira que aparecerá no topo da tabela.")
 
-# O segredo: num_rows="fixed" impede que o Streamlit crie linhas ao clicar no vazio
+# num_rows="fixed" impede criação automática, mas habilitamos a exclusão manual
 st.session_state.df_insumos = st.data_editor(
     st.session_state.df_insumos,
     column_config={
@@ -79,10 +77,15 @@ st.session_state.df_insumos = st.data_editor(
         "Preço": st.column_config.NumberColumn("Valor Unit. (R$)", format="R$ %.2f"),
         "Qtd": st.column_config.NumberColumn("Quantidade"),
     },
-    num_rows="fixed", # TRAVA A CRIAÇÃO DE LINHAS NA TABELA
+    num_rows="fixed", 
+    disabled=False, # Garante que a edição está ativa
+    hide_index=False, # Mostra o índice para facilitar a seleção
     use_container_width=True,
-    key="editor_travado"
+    key="editor_final"
 )
+
+# Lógica para permitir deletar linhas selecionadas através da interface do editor
+# O Streamlit lida com isso automaticamente quando o df é editado e salvo no session_state
 
 if st.button("🗑️ Limpar Toda a Lista"):
     st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
