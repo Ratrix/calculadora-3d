@@ -10,9 +10,30 @@ st.markdown("---")
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
-# --- BARRA LATERAL (Custos Fixos e Payback) ---
+# --- DICIONÁRIO DE TARIFAS (Média Residencial aproximada por Estado - R$/kWh com impostos) ---
+tarifas_estados = {
+    "Personalizado": 0.00,
+    "Acre (AC)": 0.92, "Alagoas (AL)": 0.88, "Amapá (AP)": 0.85, "Amazonas (AM)": 0.90,
+    "Bahia (BA)": 0.91, "Ceará (CE)": 0.87, "Distrito Federal (DF)": 0.82,
+    "Espírito Santo (ES)": 0.84, "Goiás (GO)": 0.86, "Maranhão (MA)": 0.89,
+    "Mato Grosso (MT)": 0.93, "Mato Grosso do Sul (MS)": 0.92, "Minas Gerais (MG)": 0.95,
+    "Pará (PA)": 1.05, "Paraíba (PB)": 0.86, "Paraná (PR)": 0.84,
+    "Pernambuco (PE)": 0.87, "Piauí (PI)": 0.90, "Rio de Janeiro (RJ)": 1.02,
+    "Rio Grande do Norte (RN)": 0.88, "Rio Grande do Sul (RS)": 0.86,
+    "Rondônia (RO)": 0.91, "Roraima (RR)": 0.85, "Santa Catarina (SC)": 0.81,
+    "São Paulo (SP)": 0.94, "Sergipe (SE)": 0.88, "Tocantins (TO)": 0.91
+}
+
+# --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Configurações Base")
-custo_kwh = st.sidebar.number_input("Energia (R$/kWh)", value=0.98)
+
+# NOVO: Seleção de Estado para kWh Automático
+estado_sel = st.sidebar.selectbox("Selecione seu Estado para kWh", list(tarifas_estados.keys()), index=25) # SP padrão
+valor_sugerido = tarifas_estados[estado_sel]
+
+# O campo de valor aceita o sugerido, mas permite alteração manual
+custo_kwh = st.sidebar.number_input("Energia (R$/kWh)", value=valor_sugerido if valor_sugerido > 0 else 0.98, step=0.01)
+
 valor_sua_hora = st.sidebar.number_input("Sua Hora Técnica (R$)", value=30.0)
 taxa_falha = st.sidebar.slider("Margem de Segurança/Falha (%)", 0, 30, 10)
 
@@ -21,11 +42,7 @@ valor_maquina = st.sidebar.number_input("Valor da Máquina (R$)", value=2500.0)
 meses_payback = st.sidebar.number_input("Quitar em quantos meses?", value=12, min_value=1)
 uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, min_value=1)
 
-# Cálculo da Depreciação por Objetivo Financeiro
-# (Valor / Meses) = Quanto ela tem que render por mês. 
-# (Rendimento Mensal / Horas de uso) = Custo de depreciação por hora de impressão.
 depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
-
 st.sidebar.write(f"📊 **Custo de Máquina:** R$ {depreciacao_hora:.2f}/hora")
 
 st.sidebar.header("🛠️ Tecnologia")
@@ -120,5 +137,5 @@ res2.metric("Preço de Venda Sugerido", f"R$ {preco_venda:.2f}")
 res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final_com_falha):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
-    resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Técnica:* {tecnologia}\n*Valor:* R$ {preco_venda:.2f}"
+    resumo = f"*Orçamento Calibrando Flow 3D*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
     st.code(resumo)
