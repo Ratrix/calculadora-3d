@@ -8,7 +8,8 @@ st.markdown("---")
 
 # --- MEMÓRIA DOS DADOS ---
 if 'df_insumos' not in st.session_state:
-    st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
+    # Adicionamos uma coluna 'Selecionar' para o controle de exclusão
+    st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
 # --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Custos Fixos")
@@ -19,7 +20,6 @@ taxa_falha = st.sidebar.slider("Taxa de Risco/Falha (%)", 0, 30, 10)
 st.sidebar.header("📠 Tecnologia")
 tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
 
-# Parâmetros técnicos (Bambu Lab / Elegoo)
 if tecnologia == "FDM (FILAMENTO)":
     v_maquina, v_util, pot_media = 2500.0, 5000, 200
 else:
@@ -48,11 +48,11 @@ st.markdown("---")
 # --- SEÇÃO DE INSUMOS ---
 st.subheader("📦 Insumos e Materiais Extras")
 
-# 1. Campos de Adição (Única forma de criar linha)
+# 1. Campos de Adição
 with st.container():
     col_add1, col_add2, col_add3, col_add4 = st.columns([3, 1, 1, 1])
     with col_add1:
-        novo_mat = st.text_input("Descrição do Material", placeholder="Digite aqui (ex: Lixa, Álcool...)", key="input_mat")
+        novo_mat = st.text_input("Descrição do Material", placeholder="Ex: Lixa, Álcool...", key="input_mat")
     with col_add2:
         novo_preco = st.number_input("Valor Unit. (R$)", min_value=0.0, step=0.5, key="input_preco")
     with col_add3:
@@ -60,36 +60,39 @@ with st.container():
     with col_add4:
         st.write(" ") 
         st.write(" ")
-        if st.button("➕ Adicionar à Lista"):
+        if st.button("➕ Adicionar"):
             if novo_mat:
-                nova_linha = pd.DataFrame([{"Material": novo_mat, "Preço": novo_preco, "Qtd": novo_qtd}])
+                nova_linha = pd.DataFrame([{"Selecionar": False, "Material": novo_mat, "Preço": novo_preco, "Qtd": novo_qtd}])
                 st.session_state.df_insumos = pd.concat([st.session_state.df_insumos, nova_linha], ignore_index=True)
                 st.rerun()
 
-# 2. Tabela de Visualização, Edição e Exclusão Seletiva
-st.write("💡 **Para Editar:** Clique na célula. | **Para Excluir:** Marque a linha à esquerda e use o ícone de lixeira que aparecerá no topo da tabela.")
+# 2. Tabela de Visualização e Edição
+st.write("💡 **Para Editar:** Clique na célula. | **Para Excluir:** Marque a caixa 'Selecionar' e clique no botão de excluir abaixo.")
 
-# num_rows="fixed" impede criação automática, mas habilitamos a exclusão manual
 st.session_state.df_insumos = st.data_editor(
     st.session_state.df_insumos,
     column_config={
+        "Selecionar": st.column_config.CheckboxColumn("Excluir?", default=False),
         "Material": st.column_config.TextColumn("Descrição", width="large"),
         "Preço": st.column_config.NumberColumn("Valor Unit. (R$)", format="R$ %.2f"),
-        "Qtd": st.column_config.NumberColumn("Quantidade"),
+        "Qtd": st.column_config.NumberColumn("Qtd"),
     },
     num_rows="fixed", 
-    disabled=False, # Garante que a edição está ativa
-    hide_index=False, # Mostra o índice para facilitar a seleção
     use_container_width=True,
-    key="editor_final"
+    key="editor_insumos"
 )
 
-# Lógica para permitir deletar linhas selecionadas através da interface do editor
-# O Streamlit lida com isso automaticamente quando o df é editado e salvo no session_state
-
-if st.button("🗑️ Limpar Toda a Lista"):
-    st.session_state.df_insumos = pd.DataFrame(columns=["Material", "Preço", "Qtd"])
-    st.rerun()
+# 3. BOTÕES DE EXCLUSÃO
+col_btn1, col_btn2 = st.columns([1, 4])
+with col_btn1:
+    if st.button("❌ Deletar Selecionados"):
+        # Filtra a tabela mantendo apenas quem NÃO está selecionado
+        st.session_state.df_insumos = st.session_state.df_insumos[st.session_state.df_insumos["Selecionar"] == False]
+        st.rerun()
+with col_btn2:
+    if st.button("🗑️ Limpar Toda a Lista"):
+        st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
+        st.rerun()
 
 # --- CÁLCULOS FINAIS ---
 fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
