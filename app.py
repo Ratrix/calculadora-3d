@@ -22,7 +22,6 @@ with col_logo:
     nome_loja = st.text_input("Sua Marca/Nome", value="Calibrando Flow 3D")
 
 st.title(f"⚖️ Calculadora de Custos - {nome_loja}")
-st.info(f"👨‍💻 Engenheiro Responsável: Joseanderson Langner | Controle e Automação")
 st.markdown("---")
 
 # --- DICIONÁRIO DE TARIFAS (kWh por Estado) ---
@@ -138,5 +137,10 @@ res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
 res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
-    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Responsável Técnico:* Joseanderson Langner\n*Valor:* R$ {preco_venda:.2f}"
+    # Orçamento limpo para o cliente, sem o nome do desenvolvedor aqui
+    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
     st.code(resumo)
+
+# --- RODAPÉ DE CRÉDITOS (Apenas visual na página) ---
+st.markdown("---")
+st.caption("🚀 Desenvolvido por: Joseanderson Langner | Engenharia de Controle e Automação")
