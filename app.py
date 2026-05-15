@@ -143,4 +143,4 @@ if st.button("Gerar Resumo WhatsApp"):
 
 # --- RODAPÉ DE CRÉDITOS (Apenas visual na página) ---
 st.markdown("---")
-st.caption("🚀 Desenvolvido por: Joseanderson Langner | Engenharia de Controle e Automação")
+st.caption("🚀 Desenvolvido por: Joseanderson Langner")
