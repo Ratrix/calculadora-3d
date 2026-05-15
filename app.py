@@ -1,5 +1,5 @@
 # =================================================================
-# PROJETO: CALCULADORA 3D PRO - Calibrando Flow 3D
+# PROJETO: CALCULADORA 3D PRO  - Calibrando Flow 3D
 # DESENVOLVIDO POR: Joseanderson Langner
 # FORMAÇÃO: Engenharia de Controle e Automação
 # DATA DE DESENVOLVIMENTO: Maio de 2026
@@ -12,18 +12,9 @@ import pandas as pd
 # Configuração da página
 st.set_page_config(page_title="Calculadora 3D Pro", page_icon="⚖️", layout="wide")
 
-# --- LÓGICA DE MEMÓRIA E CONTADOR ÚNICO POR SESSÃO ---
+# --- LÓGICA DE MEMÓRIA (Session State) ---
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
-
-if 'visitou' not in st.session_state:
-    # Esta linha só roda UMA VEZ por sessão (quando a aba é aberta)
-    # Usamos um ID de página único para evitar conflitos
-    contador_url = "https://visitor-badge.laobi.icu/badge?page_id=joseanderson_langner_final_version.unique"
-    st.session_state.visitou = True
-else:
-    # Se já visitou nesta sessão, o badge não é chamado novamente da mesma forma
-    contador_url = "https://visitor-badge.laobi.icu/badge?page_id=joseanderson_langner_final_version.unique&hit_type=view"
 
 # --- IDENTIDADE VISUAL ---
 col_logo, col_titulo = st.columns([1, 4])
@@ -32,14 +23,9 @@ with col_logo:
 
 st.title(f"⚖️ Calculadora de Custos - {nome_loja}")
 st.info(f"👨‍💻 Engenheiro Responsável: Joseanderson Langner | Controle e Automação")
-
-# Exibição do Contador na Sidebar de forma discreta e corrigida
-st.sidebar.markdown("### 📊 Estatísticas de Acesso")
-st.sidebar.image(contador_url)
-st.sidebar.caption("Contagem baseada em visitantes únicos.")
 st.markdown("---")
 
-# --- DICIONÁRIO DE TARIFAS ---
+# --- DICIONÁRIO DE TARIFAS (kWh por Estado) ---
 tarifas_estados = {
     "Personalizado": 0.00, "Acre (AC)": 0.92, "Alagoas (AL)": 0.88, "Amapá (AP)": 0.85, 
     "Amazonas (AM)": 0.90, "Bahia (BA)": 0.91, "Ceará (CE)": 0.87, "Distrito Federal (DF)": 0.82,
@@ -64,7 +50,7 @@ valor_maquina = st.sidebar.number_input("Valor da Máquina (R$)", value=2500.0)
 meses_payback = st.sidebar.number_input("Quitar em quantos meses?", value=12, min_value=1)
 uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, min_value=1)
 depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
-st.sidebar.write(f"📊 **Custo de Máquina:** R$ {depreciacao_hora:.2f}/hora")
+st.sidebar.write(f"📊 **Depreciação:** R$ {depreciacao_hora:.2f}/hora")
 
 # --- DADOS DO PROJETO ---
 col_p1, col_p2 = st.columns(2)
