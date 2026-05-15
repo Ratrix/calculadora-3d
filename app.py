@@ -1,5 +1,5 @@
 # =================================================================
-# PROJETO: CALCULADORA 3D PRO -  Calibrando Flow 3D
+# PROJETO: CALCULADORA 3D PRO
 # DESENVOLVIDO POR: Joseanderson Langner
 # FORMAÇÃO: Engenharia de Controle e Automação
 # DATA DE DESENVOLVIMENTO: Maio de 2026
@@ -12,24 +12,26 @@ import pandas as pd
 # Configuração da página
 st.set_page_config(page_title="Calculadora 3D Pro", page_icon="⚖️", layout="wide")
 
-# --- LÓGICA DE MEMÓRIA ---
+# --- LÓGICA DE MEMÓRIA (Session State) ---
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
-# --- CONTADOR DE VISITAS (Simples e Visual) ---
-# Usando um badge dinâmico para contar acessos
-st.sidebar.markdown(f"![Visitas](https://visitor-badge.laobi.icu/badge?page_id=calibrando_flow_3d_pro.{nome_peca if 'nome_peca' in locals() else 'home'})")
+# --- CONTADOR DE VISITANTES ÚNICOS (CORREÇÃO DO BUG) ---
+# Usamos o parâmetro 'unique' para evitar contar cada reload da página.
+# Isso utiliza cookies do navegador para saber se é a mesma pessoa.
+st.sidebar.markdown("### 📊 Estatísticas")
+st.sidebar.markdown(f"![Visitantes Únicos](https://visitor-badge.laobi.icu/badge?page_id=joseanderson_langner_calc3d.unique&left_text=Visitantes%20Únicos)")
 
-# --- IDENTIDADE VISUAL DINÂMICA ---
+# --- IDENTIDADE VISUAL ---
 col_logo, col_titulo = st.columns([1, 4])
 with col_logo:
     nome_loja = st.text_input("Sua Marca/Nome", value="Calibrando Flow 3D")
 
 st.title(f"⚖️ Calculadora de Custos - {nome_loja}")
-st.info(f"👨‍💻 Responsável Técnico: {st.session_state.get('autor', 'Joseanderson Langner')} | Eng. de Controle e Automação")
+st.info(f"👨‍💻 Desenvolvido por: Joseanderson Langner | Eng. de Controle e Automação")
 st.markdown("---")
 
-# --- DICIONÁRIO DE TARIFAS (Média R$/kWh por Estado) ---
+# --- DICIONÁRIO DE TARIFAS ---
 tarifas_estados = {
     "Personalizado": 0.00, "Acre (AC)": 0.92, "Alagoas (AL)": 0.88, "Amapá (AP)": 0.85, 
     "Amazonas (AM)": 0.90, "Bahia (BA)": 0.91, "Ceará (CE)": 0.87, "Distrito Federal (DF)": 0.82,
@@ -59,7 +61,7 @@ st.sidebar.write(f"📊 **Depreciação:** R$ {depreciacao_hora:.2f}/hora")
 # --- DADOS DO PROJETO ---
 col_p1, col_p2 = st.columns(2)
 with col_p1:
-    nome_peca = st.text_input("Nome do Projeto", value="Peça Exemplo")
+    nome_peca = st.text_input("Nome do Projeto", value="Cabeça Jack Sparrow")
     preco_material = st.number_input("Preço do Material Base (R$/kg ou L)", value=160.0)
     
     st.write("Consumo de Material")
@@ -70,8 +72,8 @@ with col_p1:
 with col_p2:
     st.write("Tempo de Impressão e Pós")
     h_col, m_col = st.columns(2)
-    horas = h_col.number_input("Horas", min_value=0, value=1)
-    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=0)
+    horas = h_col.number_input("Horas", min_value=0, value=12)
+    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=30)
     
     st.write("Custos de Engenharia")
     tempo_pos = st.number_input("Setup e Pós-Processo (min)", value=20)
@@ -123,7 +125,7 @@ fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
 tempo_total_h = horas + (minutos / 60)
 
 custo_mat_base = fator * preco_material
-custo_energia = (200 * tempo_total_h / 1000) * custo_kwh # Base 200W médio
+custo_energia = (200 * tempo_total_h / 1000) * custo_kwh 
 custo_depreciacao = tempo_total_h * depreciacao_hora
 custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 total_extras = (pd.to_numeric(st.session_state.df_insumos["Preço"]) * pd.to_numeric(st.session_state.df_insumos["Qtd"])).sum()
@@ -142,5 +144,5 @@ res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
 res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
-    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Engenheiro Responsável:* {st.session_state.get('autor', 'Joseanderson Langner')}\n*Valor:* R$ {preco_venda:.2f}"
+    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Responsável:* Joseanderson Langner\n*Valor:* R$ {preco_venda:.2f}"
     st.code(resumo)
