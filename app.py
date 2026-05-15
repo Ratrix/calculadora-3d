@@ -1,35 +1,29 @@
 # =================================================================
-# PROJETO: CALCULADORA 3D PRO
+# PROJETO: CALCULADORA 3D PRO - Calibrando Flow 3D
 # DESENVOLVIDO POR: Joseanderson Langner
 # FORMAÇÃO: Engenharia de Controle e Automação
+# DATA DE DESENVOLVIMENTO: Maio de 2026
+# DESCRIÇÃO: Ferramenta de gestão e orçamentação para impressão 3D
 # =================================================================
 
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
 
 # Configuração da página
 st.set_page_config(page_title="Calculadora 3D Pro", page_icon="⚖️", layout="wide")
 
-# --- LÓGICA DE MEMÓRIA ---
+# --- LÓGICA DE MEMÓRIA E CONTADOR ÚNICO POR SESSÃO ---
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
-# --- CONTADOR DE VISITANTES ÚNICOS (VERSÃO BLINDADA) ---
-# Usamos um iframe invisível que só carrega uma vez por sessão do navegador.
-st.sidebar.markdown("### 📊 Estatísticas de Acesso")
-
-# Criamos um ID único para seu app para não misturar com outros
-badge_html = """
-<div style="text-align: left;">
-    <img src="https://visitor-badge.laobi.icu/badge?page_id=joseanderson.calc3d.oficial.2026&left_text=Visitantes%20Únicos" 
-    alt="Contador">
-</div>
-"""
-# O segredo: injetamos o HTML via componente, que o Streamlit trata de forma diferente do markdown comum
-with st.sidebar:
-    components.html(badge_html, height=50)
-    st.caption("Contagem baseada em IDs de sessão únicos.")
+if 'visitou' not in st.session_state:
+    # Esta linha só roda UMA VEZ por sessão (quando a aba é aberta)
+    # Usamos um ID de página único para evitar conflitos
+    contador_url = "https://visitor-badge.laobi.icu/badge?page_id=joseanderson_langner_final_version.unique"
+    st.session_state.visitou = True
+else:
+    # Se já visitou nesta sessão, o badge não é chamado novamente da mesma forma
+    contador_url = "https://visitor-badge.laobi.icu/badge?page_id=joseanderson_langner_final_version.unique&hit_type=view"
 
 # --- IDENTIDADE VISUAL ---
 col_logo, col_titulo = st.columns([1, 4])
@@ -38,6 +32,125 @@ with col_logo:
 
 st.title(f"⚖️ Calculadora de Custos - {nome_loja}")
 st.info(f"👨‍💻 Engenheiro Responsável: Joseanderson Langner | Controle e Automação")
+
+# Exibição do Contador na Sidebar de forma discreta e corrigida
+st.sidebar.markdown("### 📊 Estatísticas de Acesso")
+st.sidebar.image(contador_url)
+st.sidebar.caption("Contagem baseada em visitantes únicos.")
 st.markdown("---")
 
-# [O RESTANTE DO SEU CÓDIGO DE CÁLCULOS SEGUE IGUAL ABAIXO...]
+# --- DICIONÁRIO DE TARIFAS ---
+tarifas_estados = {
+    "Personalizado": 0.00, "Acre (AC)": 0.92, "Alagoas (AL)": 0.88, "Amapá (AP)": 0.85, 
+    "Amazonas (AM)": 0.90, "Bahia (BA)": 0.91, "Ceará (CE)": 0.87, "Distrito Federal (DF)": 0.82,
+    "Espírito Santo (ES)": 0.84, "Goiás (GO)": 0.86, "Maranhão (MA)": 0.89, "Mato Grosso (MT)": 0.93, 
+    "Mato Grosso do Sul (MS)": 0.92, "Minas Gerais (MG)": 0.95, "Pará (PA)": 1.05, "Paraíba (PB)": 0.86, 
+    "Paraná (PR)": 0.84, "Pernambuco (PE)": 0.87, "Piauí (PI)": 0.90, "Rio de Janeiro (RJ)": 1.02,
+    "Rio Grande do Norte (RN)": 0.88, "Rio Grande do Sul (RS)": 0.86, "Rondônia (RO)": 0.91, 
+    "Roraima (RR)": 0.85, "Santa Catarina (SC)": 0.81, "São Paulo (SP)": 0.94, "Sergipe (SE)": 0.88, 
+    "Tocantins (TO)": 0.91
+}
+
+# --- BARRA LATERAL ---
+st.sidebar.header("⚙️ Configurações Base")
+estado_sel = st.sidebar.selectbox("Selecione seu Estado para kWh", list(tarifas_estados.keys()), index=25)
+valor_sugerido = tarifas_estados[estado_sel]
+custo_kwh = st.sidebar.number_input("Energia (R$/kWh)", value=valor_sugerido if valor_sugerido > 0 else 0.98, step=0.01)
+valor_sua_hora = st.sidebar.number_input("Sua Hora Técnica (R$)", value=30.0)
+taxa_falha = st.sidebar.slider("Margem de Segurança/Falha (%)", 0, 30, 10)
+
+st.sidebar.header("💰 Planejamento de Payback")
+valor_maquina = st.sidebar.number_input("Valor da Máquina (R$)", value=2500.0)
+meses_payback = st.sidebar.number_input("Quitar em quantos meses?", value=12, min_value=1)
+uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, min_value=1)
+depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
+st.sidebar.write(f"📊 **Custo de Máquina:** R$ {depreciacao_hora:.2f}/hora")
+
+# --- DADOS DO PROJETO ---
+col_p1, col_p2 = st.columns(2)
+with col_p1:
+    nome_peca = st.text_input("Nome do Projeto", value="Cabeça Jack Sparrow")
+    preco_material = st.number_input("Preço do Material Base (R$/kg ou L)", value=160.0)
+    
+    st.write("Consumo de Material")
+    c_col1, c_col2 = st.columns([2, 1])
+    consumo_valor = c_col1.number_input("Qtd Consumida", min_value=0.0, step=0.1)
+    unidade = c_col2.selectbox("Unidade", ["g", "kg", "ml", "L"])
+
+with col_p2:
+    st.write("Tempo de Impressão e Pós")
+    h_col, m_col = st.columns(2)
+    horas = h_col.number_input("Horas", min_value=0, value=12)
+    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=30)
+    
+    st.write("Custos de Engenharia")
+    tempo_pos = st.number_input("Setup e Pós-Processo (min)", value=20)
+    valor_modelagem = st.number_input("Valor da Modelagem 3D (R$)", value=0.0)
+
+st.markdown("---")
+
+# --- INSUMOS EXTRAS ---
+st.subheader("📦 Insumos e Materiais Extras")
+with st.container():
+    col_add1, col_add2, col_add3, col_add4 = st.columns([3, 1, 1, 1])
+    with col_add1:
+        novo_mat = st.text_input("Descrição (Lixa, Álcool...)", key="input_mat")
+    with col_add2:
+        novo_preco = st.number_input("Valor (R$)", min_value=0.0, key="input_preco")
+    with col_add3:
+        novo_qtd = st.number_input("Qtd", min_value=1, key="input_qtd")
+    with col_add4:
+        st.write(" ")
+        st.write(" ")
+        if st.button("➕ Adicionar"):
+            if novo_mat:
+                nova_linha = pd.DataFrame([{"Selecionar": False, "Material": novo_mat, "Preço": novo_preco, "Qtd": novo_qtd}])
+                st.session_state.df_insumos = pd.concat([st.session_state.df_insumos, nova_linha], ignore_index=True)
+                st.rerun()
+
+st.session_state.df_insumos = st.data_editor(
+    st.session_state.df_insumos,
+    column_config={
+        "Selecionar": st.column_config.CheckboxColumn("Excluir?", default=False),
+        "Material": st.column_config.TextColumn("Descrição"),
+        "Preço": st.column_config.NumberColumn("Valor Unit.", format="R$ %.2f"),
+    },
+    num_rows="fixed", use_container_width=True, key="editor_insumos"
+)
+
+col_btn1, col_btn2 = st.columns([1, 4])
+with col_btn1:
+    if st.button("❌ Deletar"):
+        st.session_state.df_insumos = st.session_state.df_insumos[st.session_state.df_insumos["Selecionar"] == False]
+        st.rerun()
+with col_btn2:
+    if st.button("🗑️ Limpar Tudo"):
+        st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
+        st.rerun()
+
+# --- CÁLCULOS FINAIS ---
+fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
+tempo_total_h = horas + (minutos / 60)
+
+custo_mat_base = fator * preco_material
+custo_energia = (200 * tempo_total_h / 1000) * custo_kwh 
+custo_depreciacao = tempo_total_h * depreciacao_hora
+custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
+total_extras = (pd.to_numeric(st.session_state.df_insumos["Preço"]) * pd.to_numeric(st.session_state.df_insumos["Qtd"])).sum()
+
+custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
+custo_final = custo_producao * (1 + (taxa_falha / 100))
+
+st.markdown("---")
+markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
+preco_venda = custo_final * (1 + (markup / 100))
+
+# --- RESULTADOS ---
+res1, res2, res3 = st.columns(3)
+res1.metric("Custo Total", f"R$ {custo_final:.2f}")
+res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
+res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
+
+if st.button("Gerar Resumo WhatsApp"):
+    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Responsável Técnico:* Joseanderson Langner\n*Valor:* R$ {preco_venda:.2f}"
+    st.code(resumo)
