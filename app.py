@@ -1,34 +1,44 @@
+# =================================================================
+# PROJETO: CALCULADORA 3D PRO -  Calibrando Flow 3D
+# DESENVOLVIDO POR: Joseanderson Langner
+# FORMAÇÃO: Engenharia de Controle e Automação
+# DATA DE DESENVOLVIMENTO: Maio de 2026
+# DESCRIÇÃO: Ferramenta de gestão e orçamentação para impressão 3D
+# =================================================================
+
 import streamlit as st
 import pandas as pd
 
-# Configuração da página - O título agora é dinâmico
+# Configuração da página
 st.set_page_config(page_title="Calculadora 3D Pro", page_icon="⚖️", layout="wide")
 
 # --- LÓGICA DE MEMÓRIA ---
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
+# --- CONTADOR DE VISITAS (Simples e Visual) ---
+# Usando um badge dinâmico para contar acessos
+st.sidebar.markdown(f"![Visitas](https://visitor-badge.laobi.icu/badge?page_id=calibrando_flow_3d_pro.{nome_peca if 'nome_peca' in locals() else 'home'})")
+
 # --- IDENTIDADE VISUAL DINÂMICA ---
 col_logo, col_titulo = st.columns([1, 4])
 with col_logo:
-    # Espaço para o usuário definir o nome da loja
-    nome_loja = st.text_input("Nome da sua Loja/Marca", value="Calibrando Flow 3D")
+    nome_loja = st.text_input("Sua Marca/Nome", value="Calibrando Flow 3D")
 
 st.title(f"⚖️ Calculadora de Custos - {nome_loja}")
+st.info(f"👨‍💻 Responsável Técnico: {st.session_state.get('autor', 'Joseanderson Langner')} | Eng. de Controle e Automação")
 st.markdown("---")
 
-# --- DICIONÁRIO DE TARIFAS ---
+# --- DICIONÁRIO DE TARIFAS (Média R$/kWh por Estado) ---
 tarifas_estados = {
-    "Personalizado": 0.00,
-    "Acre (AC)": 0.92, "Alagoas (AL)": 0.88, "Amapá (AP)": 0.85, "Amazonas (AM)": 0.90,
-    "Bahia (BA)": 0.91, "Ceará (CE)": 0.87, "Distrito Federal (DF)": 0.82,
-    "Espírito Santo (ES)": 0.84, "Goiás (GO)": 0.86, "Maranhão (MA)": 0.89,
-    "Mato Grosso (MT)": 0.93, "Mato Grosso do Sul (MS)": 0.92, "Minas Gerais (MG)": 0.95,
-    "Pará (PA)": 1.05, "Paraíba (PB)": 0.86, "Paraná (PR)": 0.84,
-    "Pernambuco (PE)": 0.87, "Piauí (PI)": 0.90, "Rio de Janeiro (RJ)": 1.02,
-    "Rio Grande do Norte (RN)": 0.88, "Rio Grande do Sul (RS)": 0.86,
-    "Rondônia (RO)": 0.91, "Roraima (RR)": 0.85, "Santa Catarina (SC)": 0.81,
-    "São Paulo (SP)": 0.94, "Sergipe (SE)": 0.88, "Tocantins (TO)": 0.91
+    "Personalizado": 0.00, "Acre (AC)": 0.92, "Alagoas (AL)": 0.88, "Amapá (AP)": 0.85, 
+    "Amazonas (AM)": 0.90, "Bahia (BA)": 0.91, "Ceará (CE)": 0.87, "Distrito Federal (DF)": 0.82,
+    "Espírito Santo (ES)": 0.84, "Goiás (GO)": 0.86, "Maranhão (MA)": 0.89, "Mato Grosso (MT)": 0.93, 
+    "Mato Grosso do Sul (MS)": 0.92, "Minas Gerais (MG)": 0.95, "Pará (PA)": 1.05, "Paraíba (PB)": 0.86, 
+    "Paraná (PR)": 0.84, "Pernambuco (PE)": 0.87, "Piauí (PI)": 0.90, "Rio de Janeiro (RJ)": 1.02,
+    "Rio Grande do Norte (RN)": 0.88, "Rio Grande do Sul (RS)": 0.86, "Rondônia (RO)": 0.91, 
+    "Roraima (RR)": 0.85, "Santa Catarina (SC)": 0.81, "São Paulo (SP)": 0.94, "Sergipe (SE)": 0.88, 
+    "Tocantins (TO)": 0.91
 }
 
 # --- BARRA LATERAL ---
@@ -44,16 +54,12 @@ valor_maquina = st.sidebar.number_input("Valor da Máquina (R$)", value=2500.0)
 meses_payback = st.sidebar.number_input("Quitar em quantos meses?", value=12, min_value=1)
 uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, min_value=1)
 depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
-st.sidebar.write(f"📊 **Custo de Máquina:** R$ {depreciacao_hora:.2f}/hora")
-
-st.sidebar.header("🛠️ Tecnologia")
-tecnologia = st.sidebar.selectbox("Tipo de Impressão", ["FDM (FILAMENTO)", "Resina"])
-pot_media = 200 if tecnologia == "FDM (FILAMENTO)" else 60
+st.sidebar.write(f"📊 **Depreciação:** R$ {depreciacao_hora:.2f}/hora")
 
 # --- DADOS DO PROJETO ---
 col_p1, col_p2 = st.columns(2)
 with col_p1:
-    nome_peca = st.text_input("Nome do Projeto", value="Jack sparrow")
+    nome_peca = st.text_input("Nome do Projeto", value="Peça Exemplo")
     preco_material = st.number_input("Preço do Material Base (R$/kg ou L)", value=160.0)
     
     st.write("Consumo de Material")
@@ -62,7 +68,7 @@ with col_p1:
     unidade = c_col2.selectbox("Unidade", ["g", "kg", "ml", "L"])
 
 with col_p2:
-    st.write("Tempo de Impressão (Máquina)")
+    st.write("Tempo de Impressão e Pós")
     h_col, m_col = st.columns(2)
     horas = h_col.number_input("Horas", min_value=0, value=1)
     minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=0)
@@ -73,12 +79,12 @@ with col_p2:
 
 st.markdown("---")
 
-# --- SEÇÃO DE INSUMOS EXTRAS ---
+# --- INSUMOS EXTRAS ---
 st.subheader("📦 Insumos e Materiais Extras")
 with st.container():
     col_add1, col_add2, col_add3, col_add4 = st.columns([3, 1, 1, 1])
     with col_add1:
-        novo_mat = st.text_input("Descrição (Lixa, Álcool, Caixa...)", key="input_mat")
+        novo_mat = st.text_input("Descrição (Lixa, Álcool...)", key="input_mat")
     with col_add2:
         novo_preco = st.number_input("Valor (R$)", min_value=0.0, key="input_preco")
     with col_add3:
@@ -112,29 +118,29 @@ with col_btn2:
         st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
         st.rerun()
 
-# --- CÁLCULOS TÉCNICOS ---
+# --- CÁLCULOS FINAIS ---
 fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
 tempo_total_h = horas + (minutos / 60)
+
 custo_mat_base = fator * preco_material
-custo_energia = (pot_media * tempo_total_h / 1000) * custo_kwh
+custo_energia = (200 * tempo_total_h / 1000) * custo_kwh # Base 200W médio
 custo_depreciacao = tempo_total_h * depreciacao_hora
 custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
-df_calc = st.session_state.df_insumos.copy().fillna(0)
-total_extras = (pd.to_numeric(df_calc["Preço"]) * pd.to_numeric(df_calc["Qtd"])).sum()
-custo_producao_base = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
-custo_final_com_falha = custo_producao_base * (1 + (taxa_falha / 100))
+total_extras = (pd.to_numeric(st.session_state.df_insumos["Preço"]) * pd.to_numeric(st.session_state.df_insumos["Qtd"])).sum()
+
+custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
+custo_final = custo_producao * (1 + (taxa_falha / 100))
 
 st.markdown("---")
 markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
-preco_venda = custo_final_com_falha * (1 + (markup / 100))
+preco_venda = custo_final * (1 + (markup / 100))
 
 # --- RESULTADOS ---
 res1, res2, res3 = st.columns(3)
-res1.metric("Custo de Produção", f"R$ {custo_final_com_falha:.2f}")
-res2.metric("Preço de Venda Sugerido", f"R$ {preco_venda:.2f}")
-res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final_com_falha):.2f}")
+res1.metric("Custo Total", f"R$ {custo_final:.2f}")
+res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
+res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
-    # O nome da loja inserido no começo agora aparece aqui no resumo
-    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
+    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Engenheiro Responsável:* {st.session_state.get('autor', 'Joseanderson Langner')}\n*Valor:* R$ {preco_venda:.2f}"
     st.code(resumo)
