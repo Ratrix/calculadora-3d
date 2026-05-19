@@ -84,7 +84,6 @@ with st.container():
         st.write(" ")
         if st.button("➕ Adicionar Parte"):
             if nova_parte_nome and (nova_parte_peso > 0 or nova_parte_horas > 0 or nova_parte_min > 0):
-                # Calcula o próximo número de item sequencial humano (1, 2, 3...)
                 proximo_item = len(st.session_state.df_pecas) + 1
                 nova_linha_peca = pd.DataFrame([{
                     "Selecionar": False, 
@@ -97,8 +96,6 @@ with st.container():
                 st.session_state.df_pecas = pd.concat([st.session_state.df_pecas, nova_linha_peca], ignore_index=True)
                 st.rerun()
 
-# --- TABELA CORRIGIDA (Sem 0, 1, 2, 3 e sem os cards duplicados superiores) ---
-# hide_index=True esconde o índice do Python. A coluna "Item" mostra a contagem humana correta.
 st.session_state.df_pecas = st.data_editor(
     st.session_state.df_pecas,
     column_config={
@@ -109,17 +106,13 @@ st.session_state.df_pecas = st.data_editor(
         "Horas": st.column_config.NumberColumn("H"),
         "Minutos": st.column_config.NumberColumn("M"),
     },
-    num_rows="fixed", 
-    hide_index=True, 
-    use_container_width=True, 
-    key="editor_pecas"
+    num_rows="fixed", hide_index=True, use_container_width=True, key="editor_pecas"
 )
 
 col_pbtn1, col_pbtn2 = st.columns([1, 4])
 with col_pbtn1:
     if st.button("❌ Remover Partes Marcadas"):
         st.session_state.df_pecas = st.session_state.df_pecas[st.session_state.df_pecas["Selecionar"] == False]
-        # Realinha a numeração dos itens restantes para não quebrar a sequência humana (1, 2, 3...)
         st.session_state.df_pecas["Item"] = [f"Peça {i+1}" for i in range(len(st.session_state.df_pecas))]
         st.rerun()
 with col_pbtn2:
@@ -192,14 +185,20 @@ custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao
 custo_final = custo_producao * (1 + (taxa_falha / 100))
 
 st.markdown("---")
-markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
-preco_venda = custo_final * (1 + (markup / 100))
+# CORREÇÃO DA MARGEM: O limite agora vai até 99% para evitar divisão por zero na fórmula real
+margem_lucro = st.slider("Margem de Lucro Real Desejada (%)", 0, 99, 50, help="Calculado sobre o preço de venda final.") 
+
+# Fórmula corrigida para precificação por Margem Real (e não Markup)
+if margem_lucro < 100:
+    preco_venda = custo_final / (1 - (margem_lucro / 100))
+else:
+    preco_venda = custo_final
 
 # --- RESULTADOS ---
 res1, res2, res3 = st.columns(3)
 res1.metric("Custo Total do Projeto", f"R$ {custo_final:.2f}")
 res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
-res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
+res3.metric("Lucro Líquido Real", f"R$ {(preco_venda - custo_final):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
     horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
