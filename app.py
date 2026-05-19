@@ -17,7 +17,7 @@ if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
 if 'df_pecas' not in st.session_state:
-    st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
+    st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Item", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
 
 # --- IDENTIDADE VISUAL ---
 col_logo, col_titulo = st.columns([1, 4])
@@ -84,8 +84,11 @@ with st.container():
         st.write(" ")
         if st.button("➕ Adicionar Parte"):
             if nova_parte_nome and (nova_parte_peso > 0 or nova_parte_horas > 0 or nova_parte_min > 0):
+                # Calcula o próximo número de item sequencial humano (1, 2, 3...)
+                proximo_item = len(st.session_state.df_pecas) + 1
                 nova_linha_peca = pd.DataFrame([{
                     "Selecionar": False, 
+                    "Item": f"Peça {proximo_item}",
                     "Nome da Parte": nova_parte_nome, 
                     "Peso (g)": nova_parte_peso, 
                     "Horas": nova_parte_horas, 
@@ -94,45 +97,34 @@ with st.container():
                 st.session_state.df_pecas = pd.concat([st.session_state.df_pecas, nova_linha_peca], ignore_index=True)
                 st.rerun()
 
-# --- NOVO RECURSO VISUAL: PAINEL DE PEÇAS JÁ ADICIONADAS ---
-if not st.session_state.df_pecas.empty:
-    st.write("📌 **Peças incluídas neste projeto até agora:**")
-    
-    # Criamos um loop para varrer o dataframe e plotar cada peça como uma caixinha de status clara
-    for idx, row in st.session_state.df_pecas.iterrows():
-        # Markdown com borda leve e cor de destaque para chamar a atenção visual
-        st.markdown(
-            f"""
-            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 5px solid #ff4b4b;">
-                <strong>⚙️ Peça {idx + 1}: {row['Nome da Parte']}</strong> | 
-                📦 Peso: {row['Peso (g)']:.1f}g | 
-                ⏱️ Tempo: {int(row['Horas'])}h {int(row['Minutos'])}min
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-
-# Tabela compacta embaixo apenas para caso precise gerenciar/remover algo
+# --- TABELA CORRIGIDA (Sem 0, 1, 2, 3 e sem os cards duplicados superiores) ---
+# hide_index=True esconde o índice do Python. A coluna "Item" mostra a contagem humana correta.
 st.session_state.df_pecas = st.data_editor(
     st.session_state.df_pecas,
     column_config={
         "Selecionar": st.column_config.CheckboxColumn("Marcar para Remover?", default=False),
-        "Nome da Parte": st.column_config.TextColumn("Editar Nome se necessário"),
+        "Item": st.column_config.TextColumn("Nº", disabled=True),
+        "Nome da Parte": st.column_config.TextColumn("Parte do Projeto"),
         "Peso (g)": st.column_config.NumberColumn("Peso (g)"),
         "Horas": st.column_config.NumberColumn("H"),
         "Minutos": st.column_config.NumberColumn("M"),
     },
-    num_rows="fixed", use_container_width=True, key="editor_pecas"
+    num_rows="fixed", 
+    hide_index=True, 
+    use_container_width=True, 
+    key="editor_pecas"
 )
 
 col_pbtn1, col_pbtn2 = st.columns([1, 4])
 with col_pbtn1:
     if st.button("❌ Remover Partes Marcadas"):
         st.session_state.df_pecas = st.session_state.df_pecas[st.session_state.df_pecas["Selecionar"] == False]
+        # Realinha a numeração dos itens restantes para não quebrar a sequência humana (1, 2, 3...)
+        st.session_state.df_pecas["Item"] = [f"Peça {i+1}" for i in range(len(st.session_state.df_pecas))]
         st.rerun()
 with col_pbtn2:
     if st.button("🗑️ Resetar Todas as Peças"):
-        st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
+        st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Item", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
         st.rerun()
 
 # --- SOMA DOS DADOS DAS PEÇAS ---
@@ -140,10 +132,8 @@ total_peso_g = pd.to_numeric(st.session_state.df_pecas["Peso (g)"]).sum()
 total_horas_pecas = pd.to_numeric(st.session_state.df_pecas["Horas"]).sum()
 total_minutos_pecas = pd.to_numeric(st.session_state.df_pecas["Minutos"]).sum()
 
-# Conversão matemática correta de minutos acumulados para horas
 tempo_total_h = total_horas_pecas + (total_minutos_pecas / 60)
 
-# Mostra o indicador de progresso totalizador
 if not st.session_state.df_pecas.empty:
     horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
     st.success(f"📈 **SOMA TOTAL ATUAL:** {total_peso_g:.1f}g de material | ⏳ Tempo Combinado: {horas_f}h {minutos_f}min")
@@ -176,7 +166,7 @@ st.session_state.df_insumos = st.data_editor(
         "Material": st.column_config.TextColumn("Descrição"),
         "Preço": st.column_config.NumberColumn("Valor Unit.", format="R$ %.2f"),
     },
-    num_rows="fixed", use_container_width=True, key="editor_insumos"
+    num_rows="fixed", hide_index=True, use_container_width=True, key="editor_insumos"
 )
 
 col_btn1, col_btn2 = st.columns([1, 4])
