@@ -16,6 +16,10 @@ st.set_page_config(page_title="Calculadora 3D Pro", page_icon="⚖️", layout="
 if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
+if 'df_pecas' not in st.session_state:
+    # Nova tabela para acumular as partes fatiadas do projeto
+    st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
+
 # --- IDENTIDADE VISUAL ---
 col_logo, col_titulo = st.columns([1, 4])
 with col_logo:
@@ -51,30 +55,85 @@ uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, m
 depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
 st.sidebar.write(f"📊 **Depreciação:** R$ {depreciacao_hora:.2f}/hora")
 
-# --- DADOS DO PROJETO ---
+# --- CONFIGURAÇÕES GERAIS DO PROJETO ---
 col_p1, col_p2 = st.columns(2)
 with col_p1:
-    nome_peca = st.text_input("Nome do Projeto", value="Cabeça Jack Sparrow")
+    nome_projeto = st.text_input("Nome do Projeto Geral", value="Estátua Complexa")
     preco_material = st.number_input("Preço do Material Base (R$/kg ou L)", value=160.0)
-    
-    st.write("Consumo de Material")
-    c_col1, c_col2 = st.columns([2, 1])
-    consumo_valor = c_col1.number_input("Qtd Consumida", min_value=0.0, step=0.1)
-    unidade = c_col2.selectbox("Unidade", ["g", "kg", "ml", "L"])
-
 with col_p2:
-    st.write("Tempo de Impressão e Pós")
-    h_col, m_col = st.columns(2)
-    horas = h_col.number_input("Horas", min_value=0, value=12)
-    minutos = m_col.number_input("Minutos", min_value=0, max_value=59, value=30)
-    
-    st.write("Custos de Engenharia")
-    tempo_pos = st.number_input("Setup e Pós-Processo (min)", value=20)
-    valor_modelagem = st.number_input("Valor da Modelagem 3D (R$)", value=0.0)
+    valor_modelagem = st.number_input("Valor da Modelagem/Trabalho 3D (R$)", value=0.0)
+    tempo_pos = st.number_input("Tempo Total de Setup e Pós-Processo (min)", value=20)
 
 st.markdown("---")
 
-# --- INSUMOS EXTRAS ---
+# --- NOVO BLOCO: ADICIONAR PARTES DO FATIAMENTO ---
+st.subheader("🧩 Partes Fatiadas do Projeto")
+st.write("Fatiou uma parte no software? Adicione os dados dela aqui para acumular automaticamente:")
+
+with st.container():
+    col_padd1, col_padd2, col_padd3, col_padd4, col_padd5 = st.columns([2, 1, 1, 1, 1])
+    with col_padd1:
+        nova_parte_nome = st.text_input("Nome da Parte (Ex: Braço Esquerdo, Base)", key="input_parte_nome")
+    with col_padd2:
+        nova_parte_peso = st.number_input("Peso (g)", min_value=0.0, step=0.1, key="input_parte_peso")
+    with col_padd3:
+        nova_parte_horas = st.number_input("Horas", min_value=0, step=1, key="input_parte_horas")
+    with col_padd4:
+        nova_parte_min = st.number_input("Minutos", min_value=0, max_value=59, step=1, key="input_parte_min")
+    with col_padd5:
+        st.write(" ")
+        st.write(" ")
+        if st.button("➕ Adicionar Parte"):
+            if nova_parte_nome and (nova_parte_peso > 0 or nova_parte_horas > 0 or nova_parte_min > 0):
+                nova_linha_peca = pd.DataFrame([{
+                    "Selecionar": False, 
+                    "Nome da Parte": nova_parte_nome, 
+                    "Peso (g)": nova_parte_peso, 
+                    "Horas": nova_parte_horas, 
+                    "Minutos": nova_parte_min
+                }])
+                st.session_state.df_pecas = pd.concat([st.session_state.df_pecas, nova_linha_peca], ignore_index=True)
+                st.rerun()
+
+# Exibição das peças adicionadas
+st.session_state.df_pecas = st.data_editor(
+    st.session_state.df_pecas,
+    column_config={
+        "Selecionar": st.column_config.CheckboxColumn("Remover?", default=False),
+        "Nome da Parte": st.column_config.TextColumn("Parte do Projeto"),
+        "Peso (g)": st.column_config.NumberColumn("Peso (g)", format="%.1f g"),
+        "Horas": st.column_config.NumberColumn("Horas"),
+        "Minutos": st.column_config.NumberColumn("Minutos"),
+    },
+    num_rows="fixed", use_container_width=True, key="editor_pecas"
+)
+
+col_pbtn1, col_pbtn2 = st.columns([1, 4])
+with col_pbtn1:
+    if st.button("❌ Remover Partes Selecionadas"):
+        st.session_state.df_pecas = st.session_state.df_pecas[st.session_state.df_pecas["Selecionar"] == False]
+        st.rerun()
+with col_pbtn2:
+    if st.button("🗑️ Resetar Peças"):
+        st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
+        st.rerun()
+
+# --- SOMA DOS DADOS DAS PEÇAS ---
+total_peso_g = pd.to_numeric(st.session_state.df_pecas["Peso (g)"]).sum()
+total_horas_pecas = pd.to_numeric(st.session_state.df_pecas["Horas"]).sum()
+total_minutos_pecas = pd.to_numeric(st.session_state.df_pecas["Minutos"]).sum()
+
+# Conversão matemática correta de minutos acumulados para horas
+tempo_total_h = total_horas_pecas + (total_minutos_pecas / 60)
+
+# Mostra um mini resumo do fatiamento acumulado
+if not st.session_state.df_pecas.empty:
+    horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
+    st.info(f"📊 **Total Acumulado das Peças:** {total_peso_g:.1f}g de material | ⏱️ Tempo Total: {horas_f}h {minutos_f}min")
+
+st.markdown("---")
+
+# --- INSUMOS EXTRAS (Lixa, tintas, parafusos...) ---
 st.subheader("📦 Insumos e Materiais Extras")
 with st.container():
     col_add1, col_add2, col_add3, col_add4 = st.columns([3, 1, 1, 1])
@@ -82,65 +141,4 @@ with st.container():
         novo_mat = st.text_input("Descrição (Lixa, Álcool...)", key="input_mat")
     with col_add2:
         novo_preco = st.number_input("Valor (R$)", min_value=0.0, key="input_preco")
-    with col_add3:
-        novo_qtd = st.number_input("Qtd", min_value=1, key="input_qtd")
-    with col_add4:
-        st.write(" ")
-        st.write(" ")
-        if st.button("➕ Adicionar"):
-            if novo_mat:
-                nova_linha = pd.DataFrame([{"Selecionar": False, "Material": novo_mat, "Preço": novo_preco, "Qtd": novo_qtd}])
-                st.session_state.df_insumos = pd.concat([st.session_state.df_insumos, nova_linha], ignore_index=True)
-                st.rerun()
-
-st.session_state.df_insumos = st.data_editor(
-    st.session_state.df_insumos,
-    column_config={
-        "Selecionar": st.column_config.CheckboxColumn("Excluir?", default=False),
-        "Material": st.column_config.TextColumn("Descrição"),
-        "Preço": st.column_config.NumberColumn("Valor Unit.", format="R$ %.2f"),
-    },
-    num_rows="fixed", use_container_width=True, key="editor_insumos"
-)
-
-col_btn1, col_btn2 = st.columns([1, 4])
-with col_btn1:
-    if st.button("❌ Deletar"):
-        st.session_state.df_insumos = st.session_state.df_insumos[st.session_state.df_insumos["Selecionar"] == False]
-        st.rerun()
-with col_btn2:
-    if st.button("🗑️ Limpar Tudo"):
-        st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
-        st.rerun()
-
-# --- CÁLCULOS FINAIS ---
-fator = consumo_valor / 1000 if unidade in ["g", "ml"] else consumo_valor
-tempo_total_h = horas + (minutos / 60)
-
-custo_mat_base = fator * preco_material
-custo_energia = (200 * tempo_total_h / 1000) * custo_kwh 
-custo_depreciacao = tempo_total_h * depreciacao_hora
-custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
-total_extras = (pd.to_numeric(st.session_state.df_insumos["Preço"]) * pd.to_numeric(st.session_state.df_insumos["Qtd"])).sum()
-
-custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
-custo_final = custo_producao * (1 + (taxa_falha / 100))
-
-st.markdown("---")
-markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
-preco_venda = custo_final * (1 + (markup / 100))
-
-# --- RESULTADOS ---
-res1, res2, res3 = st.columns(3)
-res1.metric("Custo Total", f"R$ {custo_final:.2f}")
-res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
-res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
-
-if st.button("Gerar Resumo WhatsApp"):
-    # Orçamento limpo para o cliente, sem o nome do desenvolvedor aqui
-    resumo = f"*Orçamento {nome_loja}*\n\n*Projeto:* {nome_peca}\n*Valor:* R$ {preco_venda:.2f}"
-    st.code(resumo)
-
-# --- RODAPÉ DE CRÉDITOS (Apenas visual na página) ---
-st.markdown("---")
-st.caption("🚀 Desenvolvido por: Joseanderson Langner")
+    with col_add
