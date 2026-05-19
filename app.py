@@ -47,12 +47,16 @@ custo_kwh = st.sidebar.number_input("Energia (R$/kWh)", value=valor_sugerido if 
 valor_sua_hora = st.sidebar.number_input("Sua Hora Técnica (R$)", value=30.0)
 taxa_falha = st.sidebar.slider("Margem de Segurança/Falha (%)", 0, 30, 10)
 
-st.sidebar.header("💰 Planejamento de Payback")
+st.sidebar.header("💰 Planejamento de Depreciação")
 valor_maquina = st.sidebar.number_input("Valor da Máquina (R$)", value=2500.0)
-meses_payback = st.sidebar.number_input("Quitar em quantos meses?", value=12, min_value=1)
+
+# CORREÇÃO DE TERMO: Alterado de "Quitar em quantos meses?" para "Vida útil estimada (meses)"
+meses_depreciacao = st.sidebar.number_input("Vida útil estimada (meses)", value=36, min_value=1, help="Tempo estimado que a máquina durará na oficina produzindo.")
 uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, min_value=1)
-depreciacao_hora = (valor_maquina / meses_payback) / uso_mensal_horas
-st.sidebar.write(f"📊 **Depreciação:** R$ {depreciacao_hora:.2f}/hora")
+
+# Cálculo técnico baseado na vida útil real do ativo
+depreciacao_hora = (valor_maquina / meses_depreciacao) / uso_mensal_horas
+st.sidebar.write(f"📊 **Custo de Máquina:** R$ {depreciacao_hora:.2f}/hora")
 
 # --- CONFIGURAÇÕES GERAIS DO PROJETO ---
 col_p1, col_p2 = st.columns(2)
@@ -128,8 +132,8 @@ total_minutos_pecas = pd.to_numeric(st.session_state.df_pecas["Minutos"]).sum()
 tempo_total_h = total_horas_pecas + (total_minutos_pecas / 60)
 
 if not st.session_state.df_pecas.empty:
-    horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
-    st.success(f"📈 **SOMA TOTAL ATUAL:** {total_peso_g:.1f}g de material | ⏳ Tempo Combinado: {horas_f}h {minutos_f}min")
+    horas_f, minutes_f = divmod(int(tempo_total_h * 60), 60)
+    st.success(f"📈 **SOMA TOTAL ATUAL:** {total_peso_g:.1f}g de material | ⏳ Tempo Combinado: {horas_f}h {minutes_f}min")
 
 st.markdown("---")
 
@@ -185,10 +189,8 @@ custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao
 custo_final = custo_producao * (1 + (taxa_falha / 100))
 
 st.markdown("---")
-# CORREÇÃO DA MARGEM: O limite agora vai até 99% para evitar divisão por zero na fórmula real
 margem_lucro = st.slider("Margem de Lucro Real Desejada (%)", 0, 99, 50, help="Calculado sobre o preço de venda final.") 
 
-# Fórmula corrigida para precificação por Margem Real (e não Markup)
 if margem_lucro < 100:
     preco_venda = custo_final / (1 - (margem_lucro / 100))
 else:
@@ -201,12 +203,12 @@ res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
 res3.metric("Lucro Líquido Real", f"R$ {(preco_venda - custo_final):.2f}")
 
 if st.button("Gerar Resumo WhatsApp"):
-    horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
+    horas_f, minutes_f = divmod(int(tempo_total_h * 60), 60)
     resumo = (
         f"*Orçamento {nome_loja}*\n\n"
         f"*Projeto:* {nome_projeto}\n"
         f"*Material Total:* {total_peso_g:.1f}g\n"
-        f"*Tempo de Impressão Total:* {horas_f}h {minutos_f}min\n"
+        f"*Tempo de Impressão Total:* {horas_f}h {minutes_f}min\n"
         f"*Valor Total:* R$ {preco_venda:.2f}"
     )
     st.code(resumo)
