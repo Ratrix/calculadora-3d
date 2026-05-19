@@ -17,7 +17,6 @@ if 'df_insumos' not in st.session_state:
     st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
 
 if 'df_pecas' not in st.session_state:
-    # Nova tabela para acumular as partes fatiadas do projeto
     st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
 
 # --- IDENTIDADE VISUAL ---
@@ -66,14 +65,14 @@ with col_p2:
 
 st.markdown("---")
 
-# --- NOVO BLOCO: ADICIONAR PARTES DO FATIAMENTO ---
+# --- BLOCO: ADICIONAR PARTES DO FATIAMENTO ---
 st.subheader("🧩 Partes Fatiadas do Projeto")
-st.write("Fatiou uma parte no software? Adicione os dados dela aqui para acumular automaticamente:")
+st.write("Insira os dados da peça fatiada atual:")
 
 with st.container():
     col_padd1, col_padd2, col_padd3, col_padd4, col_padd5 = st.columns([2, 1, 1, 1, 1])
     with col_padd1:
-        nova_parte_nome = st.text_input("Nome da Parte (Ex: Braço Esquerdo, Base)", key="input_parte_nome")
+        nova_parte_nome = st.text_input("Nome da Parte (Ex: Braço Esquerdo, Torso)", key="input_parte_nome")
     with col_padd2:
         nova_parte_peso = st.number_input("Peso (g)", min_value=0.0, step=0.1, key="input_parte_peso")
     with col_padd3:
@@ -95,26 +94,44 @@ with st.container():
                 st.session_state.df_pecas = pd.concat([st.session_state.df_pecas, nova_linha_peca], ignore_index=True)
                 st.rerun()
 
-# Exibição das peças adicionadas
+# --- NOVO RECURSO VISUAL: PAINEL DE PEÇAS JÁ ADICIONADAS ---
+if not st.session_state.df_pecas.empty:
+    st.write("📌 **Peças incluídas neste projeto até agora:**")
+    
+    # Criamos um loop para varrer o dataframe e plotar cada peça como uma caixinha de status clara
+    for idx, row in st.session_state.df_pecas.iterrows():
+        # Markdown com borda leve e cor de destaque para chamar a atenção visual
+        st.markdown(
+            f"""
+            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 5px solid #ff4b4b;">
+                <strong>⚙️ Peça {idx + 1}: {row['Nome da Parte']}</strong> | 
+                📦 Peso: {row['Peso (g)']:.1f}g | 
+                ⏱️ Tempo: {int(row['Horas'])}h {int(row['Minutos'])}min
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+
+# Tabela compacta embaixo apenas para caso precise gerenciar/remover algo
 st.session_state.df_pecas = st.data_editor(
     st.session_state.df_pecas,
     column_config={
-        "Selecionar": st.column_config.CheckboxColumn("Remover?", default=False),
-        "Nome da Parte": st.column_config.TextColumn("Parte do Projeto"),
-        "Peso (g)": st.column_config.NumberColumn("Peso (g)", format="%.1f g"),
-        "Horas": st.column_config.NumberColumn("Horas"),
-        "Minutos": st.column_config.NumberColumn("Minutos"),
+        "Selecionar": st.column_config.CheckboxColumn("Marcar para Remover?", default=False),
+        "Nome da Parte": st.column_config.TextColumn("Editar Nome se necessário"),
+        "Peso (g)": st.column_config.NumberColumn("Peso (g)"),
+        "Horas": st.column_config.NumberColumn("H"),
+        "Minutos": st.column_config.NumberColumn("M"),
     },
     num_rows="fixed", use_container_width=True, key="editor_pecas"
 )
 
 col_pbtn1, col_pbtn2 = st.columns([1, 4])
 with col_pbtn1:
-    if st.button("❌ Remover Partes Selecionadas"):
+    if st.button("❌ Remover Partes Marcadas"):
         st.session_state.df_pecas = st.session_state.df_pecas[st.session_state.df_pecas["Selecionar"] == False]
         st.rerun()
 with col_pbtn2:
-    if st.button("🗑️ Resetar Peças"):
+    if st.button("🗑️ Resetar Todas as Peças"):
         st.session_state.df_pecas = pd.DataFrame(columns=["Selecionar", "Nome da Parte", "Peso (g)", "Horas", "Minutos"])
         st.rerun()
 
@@ -126,14 +143,14 @@ total_minutos_pecas = pd.to_numeric(st.session_state.df_pecas["Minutos"]).sum()
 # Conversão matemática correta de minutos acumulados para horas
 tempo_total_h = total_horas_pecas + (total_minutos_pecas / 60)
 
-# Mostra um mini resumo do fatiamento acumulado
+# Mostra o indicador de progresso totalizador
 if not st.session_state.df_pecas.empty:
     horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
-    st.info(f"📊 **Total Acumulado das Peças:** {total_peso_g:.1f}g de material | ⏱️ Tempo Total: {horas_f}h {minutos_f}min")
+    st.success(f"📈 **SOMA TOTAL ATUAL:** {total_peso_g:.1f}g de material | ⏳ Tempo Combinado: {horas_f}h {minutos_f}min")
 
 st.markdown("---")
 
-# --- INSUMOS EXTRAS (Lixa, tintas, parafusos...) ---
+# --- INSUMOS EXTRAS ---
 st.subheader("📦 Insumos e Materiais Extras")
 with st.container():
     col_add1, col_add2, col_add3, col_add4 = st.columns([3, 1, 1, 1])
@@ -173,7 +190,7 @@ with col_btn2:
         st.rerun()
 
 # --- CÁLCULOS FINAIS ---
-fator_material = total_peso_g / 1000  # Convertendo gramas acumuladas para kg
+fator_material = total_peso_g / 1000
 
 custo_mat_base = fator_material * preco_material
 custo_energia = (200 * tempo_total_h / 1000) * custo_kwh 
