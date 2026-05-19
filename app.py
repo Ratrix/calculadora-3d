@@ -141,4 +141,70 @@ with st.container():
         novo_mat = st.text_input("Descrição (Lixa, Álcool...)", key="input_mat")
     with col_add2:
         novo_preco = st.number_input("Valor (R$)", min_value=0.0, key="input_preco")
-    with col_add
+    with col_add3:
+        novo_qtd = st.number_input("Qtd", min_value=1, key="input_qtd")
+    with col_add4:
+        st.write(" ")
+        st.write(" ")
+        if st.button("➕ Adicionar Insumo"):
+            if novo_mat:
+                nova_linha = pd.DataFrame([{"Selecionar": False, "Material": novo_mat, "Preço": novo_preco, "Qtd": novo_qtd}])
+                st.session_state.df_insumos = pd.concat([st.session_state.df_insumos, nova_linha], ignore_index=True)
+                st.rerun()
+
+st.session_state.df_insumos = st.data_editor(
+    st.session_state.df_insumos,
+    column_config={
+        "Selecionar": st.column_config.CheckboxColumn("Excluir?", default=False),
+        "Material": st.column_config.TextColumn("Descrição"),
+        "Preço": st.column_config.NumberColumn("Valor Unit.", format="R$ %.2f"),
+    },
+    num_rows="fixed", use_container_width=True, key="editor_insumos"
+)
+
+col_btn1, col_btn2 = st.columns([1, 4])
+with col_btn1:
+    if st.button("❌ Deletar Insumo"):
+        st.session_state.df_insumos = st.session_state.df_insumos[st.session_state.df_insumos["Selecionar"] == False]
+        st.rerun()
+with col_btn2:
+    if st.button("🗑️ Limpar Tudo (Insumos)"):
+        st.session_state.df_insumos = pd.DataFrame(columns=["Selecionar", "Material", "Preço", "Qtd"])
+        st.rerun()
+
+# --- CÁLCULOS FINAIS ---
+fator_material = total_peso_g / 1000  # Convertendo gramas acumuladas para kg
+
+custo_mat_base = fator_material * preco_material
+custo_energia = (200 * tempo_total_h / 1000) * custo_kwh 
+custo_depreciacao = tempo_total_h * depreciacao_hora
+custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
+total_extras = (pd.to_numeric(st.session_state.df_insumos["Preço"]) * pd.to_numeric(st.session_state.df_insumos["Qtd"])).sum()
+
+custo_producao = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
+custo_final = custo_producao * (1 + (taxa_falha / 100))
+
+st.markdown("---")
+markup = st.slider("Margem de Lucro Desejada (%)", 0, 500, 100) 
+preco_venda = custo_final * (1 + (markup / 100))
+
+# --- RESULTADOS ---
+res1, res2, res3 = st.columns(3)
+res1.metric("Custo Total do Projeto", f"R$ {custo_final:.2f}")
+res2.metric("Venda Sugerida", f"R$ {preco_venda:.2f}")
+res3.metric("Lucro Líquido", f"R$ {(preco_venda - custo_final):.2f}")
+
+if st.button("Gerar Resumo WhatsApp"):
+    horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
+    resumo = (
+        f"*Orçamento {nome_loja}*\n\n"
+        f"*Projeto:* {nome_projeto}\n"
+        f"*Material Total:* {total_peso_g:.1f}g\n"
+        f"*Tempo de Impressão Total:* {horas_f}h {minutos_f}min\n"
+        f"*Valor Total:* R$ {preco_venda:.2f}"
+    )
+    st.code(resumo)
+
+# --- RODAPÉ DE CRÉDITOS ---
+st.markdown("---")
+st.caption("🚀 Desenvolvido por: Joseanderson Langner | Engenharia de Controle e Automação")
