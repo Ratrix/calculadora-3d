@@ -9,7 +9,7 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração da página para layout expandido estilo Dashboard
+# Configuração da página estilo Dashboard Expandido
 st.set_page_config(page_title="Calculadora 3D Pro", page_icon="⚖️", layout="wide")
 
 # --- LÓGICA DE MEMÓRIA (Session State) ---
@@ -31,7 +31,7 @@ tarifas_estados = {
     "Tocantins (TO)": 0.91
 }
 
-# --- BARRA LATERAL (Configurações de Engenharia e Máquina) ---
+# --- BARRA LATERAL (Configurações do Sistema e Máquina) ---
 st.sidebar.header("⚙️ Configurações do Sistema")
 nome_loja = st.sidebar.text_input("Nome da sua Marca", value="Calibrando Flow 3D")
 
@@ -48,19 +48,20 @@ uso_mensal_horas = st.sidebar.number_input("Horas de uso por mês", value=160, m
 depreciacao_hora = (valor_maquina / meses_depreciacao) / uso_mensal_horas
 st.sidebar.write(f"📊 **Depreciação:** R$ {depreciacao_hora:.2f}/hora")
 
-# --- CORPO PRINCIPAL (Layout em Colunas do Dashboard) ---
+# --- CORPO PRINCIPAL ---
 st.title(f"📊 Painel de Custos 3D — {nome_loja}")
 st.markdown("---")
 
-# Dividindo a tela em Duas Colunas: Esquerda para Inputs, Direita para Resultados (Estilo a imagem de referência)
+# Layout de Duas Colunas do Dashboard (Inputs à esquerda, Resumos à direita)
 col_dados_esquerda, col_resultados_direita = st.columns([2, 1])
 
 with col_dados_esquerda:
+    
     # Card 1: Dados do Projeto Geral
     with st.container(border=True):
         st.subheader("📝 Dados Básicos do Projeto")
         c1, c2, c3 = st.columns(3)
-        nome_projeto = c1.text_input("Nome do Projeto", value="Colecionável Completo")
+        nome_projeto = c1.text_input("Nome do Projeto Geral", value="Colecionável Jack Sparrow")
         preco_material = c2.number_input("Preço do Material Base (R$/kg ou L)", value=160.0)
         valor_modelagem = c3.number_input("Modelagem/Trabalho 3D (R$)", value=0.0)
         
@@ -68,11 +69,9 @@ with col_dados_esquerda:
         valor_sua_hora = c4.number_input("Sua Hora Técnica (R$)", value=30.0)
         tempo_pos = c5.number_input("Tempo de Setup e Pós-Processo (minutos)", value=20)
 
-    # Card 2: Partes Fatiadas do Projeto (A sua lógica de fatiamento)
+    # Card 2: Fatiamento de Peças Dinâmico (Sem o zero e sem duplicados!)
     with st.container(border=True):
         st.subheader("🧩 Fatiamento de Peças do Projeto")
-        st.write("Insira os dados gerados pelo seu fatiador:")
-        
         col_padd1, col_padd2, col_padd3, col_padd4 = st.columns([3, 2, 1, 1])
         nova_parte_nome = col_padd1.text_input("Nome da Parte (Ex: Cabeça, Torso)", key="input_parte_nome")
         nova_parte_peso = col_padd2.number_input("Peso da Peça (g)", min_value=0.0, step=0.1, key="input_parte_peso")
@@ -89,7 +88,6 @@ with col_dados_esquerda:
                 st.session_state.df_pecas = pd.concat([st.session_state.df_pecas, nova_linha_peca], ignore_index=True)
                 st.rerun()
 
-        # Tabela sem índice (Início no 1 humano)
         st.session_state.df_pecas = st.data_editor(
             st.session_state.df_pecas,
             column_config={
@@ -100,17 +98,16 @@ with col_dados_esquerda:
             },
             num_rows="fixed", hide_index=True, use_container_width=True, key="editor_pecas"
         )
-        
         if st.button("❌ Remover Peças Selecionadas"):
             st.session_state.df_pecas = st.session_state.df_pecas[st.session_state.df_pecas["Selecionar"] == False]
             st.session_state.df_pecas["Item"] = [f"Peça {i+1}" for i in range(len(st.session_state.df_pecas))]
             st.rerun()
 
-    # Card 3: Insumos Extras
+    # Card 3: Insumos Extras e Embalagem (Idéia do HTML integrada)
     with st.container(border=True):
-        st.subheader("📦 Insumos e Materiais Extras")
+        st.subheader("📦 Embalagens e Insumos Extras")
         col_add1, col_add2, col_add3 = st.columns([3, 1, 1])
-        novo_mat = col_add1.text_input("Descrição (Lixa, Primer, Caixa...)", key="input_mat")
+        novo_mat = col_add1.text_input("Descrição (Lixa, Primer, Caixa de Envio...)", key="input_mat")
         novo_preco = col_add2.number_input("Valor Unitário (R$)", min_value=0.0, key="input_preco")
         novo_qtd = col_add3.number_input("Qtd", min_value=1, value=1, key="input_qtd")
         
@@ -132,22 +129,27 @@ with col_dados_esquerda:
             st.session_state.df_insumos = st.session_state.df_insumos[st.session_state.df_insumos["Selecionar"] == False]
             st.rerun()
 
-    # Card 4: Taxas, Plataformas e Comissões (Melhoria baseada na imagem de referência)
+    # Card 4: Rateio de Custos Fixos e Taxas de Venda
     with st.container(border=True):
-        st.subheader("📊 Impostos e Taxas de Venda")
-        t1, t2, t3, t4 = st.columns(4)
-        taxa_falha = t1.slider("Risco/Falhas (%)", 0, 30, 10)
-        imposto = t2.number_input("Imposto Nota Fiscal (%)", min_value=0.0, value=0.0)
-        taxa_cartao = t3.number_input("Taxa de Cartão/Maquininha (%)", min_value=0.0, value=0.0)
-        custo_anuncio = t4.number_input("Taxa Marketplace/Anúncio (%)", min_value=0.0, value=0.0)
+        st.subheader("📊 Custos Fixos da Oficina e Impostos")
+        t1, t2 = st.columns(2)
+        custo_fixo_mensal = t1.number_input("Custo Fixo Mensal da Oficina (Aluguel, Net) (R$)", value=0.0)
+        unidades_mes = t2.number_input("Volume Estimado de Vendas por Mês (Unidades)", value=1, min_value=1)
+        custo_fixo_rateado = custo_fixo_mensal / unidades_mes
 
-# --- CÁLCULOS MATEMÁTICOS DE SOMA ---
+        st.write("---")
+        t3, t4, t5, t6 = st.columns(4)
+        taxa_falha = t3.slider("Risco/Falhas (%)", 0, 30, 10)
+        imposto = t4.number_input("Imposto Simples/MEI (%)", min_value=0.0, value=0.0)
+        taxa_cartao = t5.number_input("Taxa de Maquininha/Link (%)", min_value=0.0, value=0.0)
+        custo_anuncio = t6.number_input("Taxa Comercial Shopee/ML (%)", min_value=0.0, value=0.0)
+
+# --- CÁLCULOS MATEMÁTICOS DE CONSOLIDAÇÃO ---
 total_peso_g = pd.to_numeric(st.session_state.df_pecas["Peso (g)"]).sum()
 total_horas_pecas = pd.to_numeric(st.session_state.df_pecas["Horas"]).sum()
 total_minutos_pecas = pd.to_numeric(st.session_state.df_pecas["Minutos"]).sum()
 tempo_total_h = total_horas_pecas + (total_minutos_pecas / 60)
 
-# Consolidação de custos diretos
 fator_material = total_peso_g / 1000
 custo_mat_base = fator_material * preco_material
 custo_energia = (potencia_maquina * tempo_total_h / 1000) * custo_kwh 
@@ -155,70 +157,74 @@ custo_depreciacao = tempo_total_h * depreciacao_hora
 custo_mao_de_obra = (tempo_pos / 60) * valor_sua_hora
 total_extras = (pd.to_numeric(st.session_state.df_insumos["Preço"]) * pd.to_numeric(st.session_state.df_insumos["Qtd"])).sum()
 
-# Custo Total de Produção Base antes das Taxas Mercadológicas
-custo_producao_liquido = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem)
+# Soma do Custo de Produção Líquido
+custo_producao_liquido = (custo_mat_base + custo_energia + custo_depreciacao + custo_mao_de_obra + total_extras + valor_modelagem + custo_fixo_rateado)
 custo_total_com_falha = custo_producao_liquido * (1 + (taxa_falha / 100))
 
 with col_resultados_direita:
-    # Card de Resultados Dinâmicos (Lado Direito da Referência)
+    # Card de Resultados Dinâmicos (Sumário Analítico)
     with st.container(border=True):
-        st.subheader("💰 Resumo de Custos")
-        
-        # Estrutura de tabela limpa de saída de dados
-        st.write(f"🔹 **Material Base:** R$ {custo_mat_base:.2f} ({total_peso_g:.1f}g)")
-        st.write(f"⚡ **Energia Elétrica:** R$ {custo_energia:.2f}")
-        st.write(f"📠 **Depreciação de Máquina:** R$ {custo_depreciacao:.2f}")
-        st.write(f"👨‍🏭 **Mão de Obra (Pós):** R$ {custo_mao_de_obra:.2f}")
-        st.write(f"📦 **Insumos Extras:** R$ {total_extras:.2f}")
-        if valor_modelagem > 0:
-            st.write(f"🛠️ **Modelagem 3D:** R$ {valor_modelagem:.2f}")
-        st.write(f"⚠️ **Custo de Falha adicionado:** R$ {(custo_total_com_falha - custo_producao_liquido):.2f}")
+        st.subheader("💰 Custos Detalhados")
+        st.write(f"📦 **Filamento/Resina:** R$ {custo_mat_base:.2f} ({total_peso_g:.1f}g)")
+        st.write(f"⚡ **Energia Consumida:** R$ {custo_energia:.2f}")
+        st.write(f"📠 **Amortização/Depreciação:** R$ {custo_depreciacao:.2f}")
+        st.write(f"🛠️ **Trabalho Manual (Pós):** R$ {custo_mao_de_obra:.2f}")
+        if total_extras > 0: st.write(f"📦 **Insumos/Embalagens:** R$ {total_extras:.2f}")
+        if valor_modelagem > 0: st.write(f"💻 **Modelagem Fusion 360:** R$ {valor_modelagem:.2f}")
+        if custo_fixo_rateado > 0: st.write(f"🏢 **Custo Fixo Rateado:** R$ {custo_fixo_rateado:.2f}")
+        st.write(f"⚠️ **Fundo de Falhas ({taxa_falha}%):** R$ {(custo_total_com_falha - custo_producao_liquido):.2f}")
         
         st.markdown("---")
-        st.error(f"### CUSTO TOTAL: R$ {custo_total_com_falha:.2f}")
+        st.error(f"### CUSTO DE PRODUÇÃO: R$ {custo_total_com_falha:.2f}")
 
-    # Card de Precificação Inteligente
+    # Módulo de Precificação Inteligente por Margem Real e Estratégias
     with st.container(border=True):
-        st.subheader("🎯 Precificação do Projeto")
+        st.subheader("🎯 Estratégias de Venda")
         margem_lucro = st.slider("Margem de Lucro Desejada (%)", 0, 90, 50)
         
-        # Soma total de todas as retenções percentuais sobre o preço de venda final
+        # Total das deduções lineares sobre a venda
         total_taxas_venda = margem_lucro + imposto + taxa_cartao + custo_anuncio
         
         if total_taxas_venda < 100:
             preco_venda = custo_total_com_falha / (1 - (total_taxas_venda / 100))
         else:
-            st.warning("⚠️ Alerta: A soma das taxas e margem superou 100%. Reduza os valores para calcular.")
+            st.warning("⚠️ Atenção: A soma das taxas superou 100%.")
             preco_venda = custo_total_com_falha
 
-        # Deduções reais do ganho
+        # Preço Lojista (Atacado) e Uso Pessoal (Makers) - Baseado no HTML que você enviou
+        preco_lojista = preco_venda * 0.5
+        custo_uso_pessoal = custo_mat_base + custo_energia + custo_depreciacao
+
+        # Deduções das taxas de venda
         v_imposto = preco_venda * (imposto / 100)
         v_cartao = preco_venda * (taxa_cartao / 100)
         v_anuncio = preco_venda * (custo_anuncio / 100)
         lucro_liquido_real = preco_venda - custo_total_com_falha - v_imposto - v_cartao - v_anuncio
 
-        st.success(f"## Preço sugerido:\n# R$ {preco_venda:.2f}")
-        st.metric("Lucro Líquido Real", f"R$ {lucro_liquido_real:.2f}")
+        # Exibição dos Três Cenários da sua Referência
+        st.success(f"## Consumidor Final:\n# R$ {preco_venda:.2f}")
+        st.metric("Lucro Líquido no Caixa", f"R$ {lucro_liquido_real:.2f}")
+        
+        st.markdown("---")
+        st.info(f"🏬 **Preço Lojista (Atacado):** R$ {preco_lojista:.2f}")
+        st.warning(f"🏠 **Uso Pessoal (Apenas Custo):** R$ {custo_uso_pessoal:.2f}")
 
-        # Detalhamento de taxas retidas no preço de venda
         if (v_imposto + v_cartao + v_anuncio) > 0:
             st.write("---")
-            st.write("**Descontos do Preço de Venda:**")
-            if v_imposto > 0: st.write(f"💸 Imposto NF: R$ {v_imposto:.2f}")
-            if v_cartao > 0: st.write(f"💳 Tarifa Cartão: R$ {v_cartao:.2f}")
-            if v_anuncio > 0: st.write(f"🏛️ Taxa Anúncio: R$ {v_anuncio:.2f}")
+            st.caption(f"Retenções na Venda: NF (R$ {v_imposto:.2f}) | Cartão (R$ {v_cartao:.2f}) | Anúncio (R$ {v_anuncio:.2f})")
 
         if st.button("Gerar Resumo WhatsApp", use_container_width=True):
             horas_f, minutos_f = divmod(int(tempo_total_h * 60), 60)
             resumo = (
                 f"*Orçamento {nome_loja}*\n\n"
                 f"*Projeto:* {nome_projeto}\n"
-                f"*Material Total:* {total_peso_g:.1f}g\n"
+                f"*Material Utilizado:* {total_peso_g:.1f}g\n"
                 f"*Tempo de Impressão:* {horas_f}h {minutos_f}min\n"
-                f"*Valor Final:* R$ {preco_venda:.2f}"
+                f"*Valor Final:* R$ {preco_venda:.2f}\n"
+                f"*Preço Lojista (Atacado):* R$ {preco_lojista:.2f}"
             )
             st.code(resumo)
 
-# --- RODAPÉ DE CRÉDITOS ---
+# --- RODAPÉ DE CRÉDITOS INTOCÁVEL ---
 st.markdown("---")
 st.caption("🚀 Desenvolvido por: Joseanderson Langner | Engenharia de Controle e Automação")
